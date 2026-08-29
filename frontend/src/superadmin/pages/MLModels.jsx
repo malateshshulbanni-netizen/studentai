@@ -24,6 +24,9 @@ const MLModels = () => {
   const [trainingHistory, setTrainingHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // API URLs from environment variables
+  const ML_API_URL = process.env.REACT_APP_ML_API_URL || 'http://localhost:8000';
+
   useEffect(() => {
     fetchModelInfo();
     fetchTrainingHistory();
@@ -31,7 +34,7 @@ const MLModels = () => {
 
   const fetchModelInfo = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/model-info');
+      const response = await fetch(`${ML_API_URL}/api/model-info`);
       const data = await response.json();
       setModelInfo(data);
     } catch (error) {
@@ -42,7 +45,7 @@ const MLModels = () => {
   const fetchTrainingHistory = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/api/training-history');
+      const response = await fetch(`${ML_API_URL}/api/training-history`);
       const data = await response.json();
       if (data.success) {
         setTrainingHistory(data.history || []);
@@ -69,7 +72,7 @@ const MLModels = () => {
     setTraining(true);
     setTrainingLog('Starting training...\n');
     try {
-      const response = await fetch('http://localhost:8000/api/train', {
+      const response = await fetch(`${ML_API_URL}/api/train`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -106,7 +109,7 @@ const MLModels = () => {
     formData.append('file', selectedFile);
 
     try {
-      const response = await fetch('http://localhost:8000/api/upload-dataset', {
+      const response = await fetch(`${ML_API_URL}/api/upload-dataset`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`

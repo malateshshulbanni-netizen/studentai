@@ -32,6 +32,9 @@ const Institutions = () => {
   const [institutions, setInstitutions] = useState([]);
   const [error, setError] = useState("");
 
+  // API URLs from environment variables
+  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
   const [formData, setFormData] = useState({
     name: "",
     code: "",
@@ -82,7 +85,7 @@ const Institutions = () => {
     setError("");
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/institutions", {
+      const response = await fetch(`${API_URL}/api/institutions`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -220,7 +223,7 @@ const Institutions = () => {
 
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:5000/api/institutions", {
+      const response = await fetch(`${API_URL}/api/institutions`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -279,7 +282,7 @@ const Institutions = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/institutions/${editingId}`,
+        `${API_URL}/api/institutions/${editingId}`,
         {
           method: "PUT",
           headers: {
@@ -328,7 +331,7 @@ const Institutions = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/institutions/${id}/toggle-status`,
+        `${API_URL}/api/institutions/${id}/toggle-status`,
         {
           method: "PATCH",
           headers: {
@@ -365,7 +368,7 @@ const Institutions = () => {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `http://localhost:5000/api/institutions/${id}`,
+        `${API_URL}/api/institutions/${id}`,
         {
           method: "DELETE",
           headers: {
