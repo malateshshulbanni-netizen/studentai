@@ -25,7 +25,7 @@ const MLModels = () => {
   const [loading, setLoading] = useState(true);
 
   // API URLs from environment variables
-  const ML_API_URL = process.env.REACT_APP_ML_API_URL || 'http://localhost:8000';
+  const ML_API_URL = process.env.REACT_APP_ML_API_URL || 'https://studentaimlservice.onrender.com';
 
   useEffect(() => {
     fetchModelInfo();
