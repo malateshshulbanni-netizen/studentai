@@ -35,6 +35,9 @@ const Institutions = () => {
   // API URLs from environment variables
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
+  console.log('🌐 Institutions API URL:', API_URL);
+  console.log('🔑 REACT_APP_API_URL from env:', process.env.REACT_APP_API_URL);
+
   const [formData, setFormData] = useState({
     name: "",
     code: "",
