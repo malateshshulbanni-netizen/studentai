@@ -20,6 +20,7 @@ app.use(cors({
     // ADD YOUR DEPLOYED FRONTEND URL HERE
     // 'https://your-frontend.vercel.app'
     'https://studentaifrontend-green.vercel.app',
+    'https://studentaiadmin-three.vercel.app',
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
