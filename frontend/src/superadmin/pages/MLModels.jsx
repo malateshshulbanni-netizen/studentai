@@ -24,8 +24,8 @@ const MLModels = () => {
   const [trainingHistory, setTrainingHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // API URLs from environment variables
-  const ML_API_URL = process.env.REACT_APP_ML_API_URL || 'https://studentaimlservice.onrender.com';
+  // API URL - fixed to avoid process.env error
+  const ML_API_URL = 'https://studentaimlservice.onrender.com';
 
   useEffect(() => {
     fetchModelInfo();

@@ -32,11 +32,10 @@ const Institutions = () => {
   const [institutions, setInstitutions] = useState([]);
   const [error, setError] = useState("");
 
-  // API URLs from environment variables
-  const API_URL = process.env.REACT_APP_API_URL || 'https://studentaibackend.vercel.app';
+  // API URL - fixed to avoid process.env error
+  const API_URL = 'https://studentaibackend.vercel.app';
 
   console.log('🌐 Institutions API URL:', API_URL);
-  console.log('🔑 REACT_APP_API_URL from env:', process.env.REACT_APP_API_URL);
 
   const [formData, setFormData] = useState({
     name: "",

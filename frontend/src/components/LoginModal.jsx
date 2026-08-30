@@ -8,8 +8,8 @@ const LoginModal = ({ isOpen, onClose, role }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // API URL from environment variables
-  const API_URL = process.env.REACT_APP_API_URL || 'https://studentaibackend.vercel.app';
+  // API URL - fixed to avoid process.env error
+  const API_URL = 'https://studentaibackend.vercel.app';
 
   // Handle login submission
   const handleLogin = async (e) => {
