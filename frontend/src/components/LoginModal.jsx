@@ -8,8 +8,9 @@ const LoginModal = ({ isOpen, onClose, role }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // API URL - fixed to avoid process.env error
-  const API_URL = 'https://studentaibackend.vercel.app';
+  // API URL - Use localhost or deployed
+  const API_URL = 'https://studentaibackend.vercel.app';  // For local backend
+  // const API_URL = 'https://studentaibackend.vercel.app';  // For deployed backend
 
   // Handle login submission
   const handleLogin = async (e) => {
@@ -17,46 +18,114 @@ const LoginModal = ({ isOpen, onClose, role }) => {
     setError('');
     setLoading(true);
 
+    console.log('🚀 Login attempt started');
+    console.log('📧 Email:', email);
+    console.log('🔑 Role:', role);
+    console.log('🔗 API URL:', API_URL);
+
     try {
+      // Build login data based on role
+      let loginData = {
+        email,
+        password,
+      };
+
+      // Set role based on user selection
+      if (role === 'superadmin') {
+        loginData.role = 'SUPER_ADMIN';
+        console.log('👑 Super Admin login detected');
+      } else if (role === 'student') {
+        loginData.role = 'STUDENT';
+        console.log('🎓 Student login detected');
+      } else {
+        console.log('⚠️ No role provided, sending without role');
+      }
+
+      console.log('📤 Sending login request:', { 
+        email: loginData.email, 
+        role: loginData.role || 'No role sent',
+        passwordLength: loginData.password?.length || 0
+      });
+
       // Call backend API
+      console.log('🌐 Fetching:', `${API_URL}/api/auth/login`);
+      
       const response = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email,
-          password,
-          role: role === 'superadmin' ? 'SUPER_ADMIN' : 'COUNSELLOR'
-        }),
+        body: JSON.stringify(loginData),
       });
 
+      console.log('📡 Response status:', response.status);
+      console.log('📡 Response status text:', response.statusText);
+
       const data = await response.json();
+      console.log('📦 Full response data:', JSON.stringify(data, null, 2));
 
       if (response.ok) {
+        console.log('✅ Login successful!');
+        console.log('👤 User data:', data.user);
+        console.log('🔑 Token received:', data.token ? 'Yes' : 'No');
+        
         // Store token and user data
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        console.log('💾 Token and user data saved to localStorage');
         
         // Redirect based on role
+        console.log('🔄 Redirecting based on role:', data.user.role);
         if (data.user.role === 'SUPER_ADMIN') {
+          console.log('🏠 Redirecting to: /super-admin/dashboard');
           window.location.href = '/super-admin/dashboard';
-        } else if (data.user.role === 'COUNSELLOR') {
-          window.location.href = '/counsellor/dashboard';
+        } else if (data.user.role === 'STUDENT') {
+          console.log('🏠 Redirecting to: /student/dashboard');
+          window.location.href = '/student/dashboard';
+        } else {
+          console.log('🏠 Redirecting to: /dashboard');
+          window.location.href = '/dashboard';
         }
         
         onClose();
       } else {
-        setError(data.message || 'Invalid credentials. Please try again.');
+        console.error('❌ Login failed with status:', response.status);
+        console.error('❌ Error data:', data);
+        
+        if (response.status === 401) {
+          console.log('🔒 Unauthorized - Invalid credentials');
+          setError('Invalid email or password. Please try again.');
+        } else if (response.status === 404) {
+          console.log('🔍 User not found');
+          setError('User not found. Please check your credentials.');
+        } else if (response.status === 500) {
+          console.log('💥 Server error');
+          setError('Server error. Please try again later.');
+        } else {
+          setError(data.message || 'Login failed. Please try again.');
+        }
+        console.error('Login error:', data);
       }
     } catch (err) {
-      setError('Network error. Please check your connection.');
+      console.error('❌ NETWORK ERROR:', err);
+      console.error('❌ Error message:', err.message);
+      console.error('❌ Error stack:', err.stack);
+      
+      if (err.message.includes('Failed to fetch') || err.message.includes('ERR_CONNECTION_REFUSED')) {
+        console.log('🌐 Network connection failed - Backend not running');
+        setError('Cannot connect to server. Please make sure the backend is running on port 5000.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
     } finally {
+      console.log('🏁 Login attempt completed');
       setLoading(false);
     }
   };
 
   if (!isOpen) return null;
+
+  console.log('🔄 LoginModal is open for role:', role);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
@@ -84,7 +153,7 @@ const LoginModal = ({ isOpen, onClose, role }) => {
             </div>
           </div>
           <h2 className="text-2xl font-bold" style={{ color: '#080C68' }}>
-            {role === 'superadmin' ? 'Super Admin Login' : 'Counsellor Login'}
+            {role === 'superadmin' ? 'Super Admin Login' : 'Student Login'}
           </h2>
           <p className="text-sm mt-1" style={{ color: '#52617A' }}>
             Enter your credentials to access the dashboard

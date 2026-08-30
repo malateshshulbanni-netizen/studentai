@@ -127,11 +127,11 @@ const Navbar = () => {
                       </button>
                       <div className="border-t" style={{ borderColor: '#24348A' }}></div>
                       <button 
-                        onClick={() => handleLoginClick('counsellor')}
+                        onClick={() => handleLoginClick('student')}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-[#00A9E0] hover:bg-white/5 transition-colors text-sm"
                       >
                         <Users size={18} style={{ color: '#00A9E0' }} />
-                        <span>Counsellor Login</span>
+                        <span>Student Login</span>
                       </button>
                     </div>
                   )}
@@ -205,13 +205,13 @@ const Navbar = () => {
                   </button>
                   <button 
                     onClick={() => {
-                      handleLoginClick('counsellor');
+                      handleLoginClick('student');
                       setIsMenuOpen(false);
                     }}
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-[#00A9E0] hover:bg-white/5 rounded-lg transition-colors"
                   >
                     <Users size={18} style={{ color: '#00A9E0' }} />
-                    <span>Counsellor Login</span>
+                    <span>Student Login</span>
                   </button>
                 </div>
               </div>

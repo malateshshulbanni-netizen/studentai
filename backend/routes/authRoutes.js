@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const Institution = require('../models/Institution');
 const Faculty = require('../models/Faculty');
+const Student = require('../models/Student');
 
 // @desc    Login institution admin
 // @route   POST /api/auth/login
@@ -143,6 +144,72 @@ router.post('/login', async (req, res) => {
           ...facultyData,
           role: 'FACULTY',
           name: faculty.fullName,
+        },
+      });
+    }
+
+    // ==================== STUDENT LOGIN ====================
+    if (role === 'STUDENT') {
+      console.log('🔍 Looking for student with email:', email);
+      
+      // IMPORTANT: Use .select('+password') to include the password field
+      const student = await Student.findOne({ email }).select('+password');
+
+      console.log('📝 Student found:', student ? 'Yes' : 'No');
+      
+      if (!student) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+        });
+      }
+
+      // Check if student is active
+      if (!student.active) {
+        return res.status(401).json({
+          success: false,
+          message: 'Your account is not activated yet. Please contact Admin.',
+        });
+      }
+
+      console.log('🔐 Comparing password...');
+      console.log('Password from request:', password);
+      console.log('Stored password hash:', student.password);
+      
+      // Use the comparePassword method
+      const isMatch = await student.comparePassword(password);
+      console.log('✅ Password match result:', isMatch);
+
+      if (!isMatch) {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid credentials',
+        });
+      }
+
+      const token = jwt.sign(
+        { 
+          id: student._id, 
+          email: student.email, 
+          role: 'STUDENT',
+          institutionId: student.institutionId,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '24h' }
+      );
+
+      const studentData = student.toObject();
+      delete studentData.password;
+
+      return res.json({
+        success: true,
+        token,
+        user: {
+          ...studentData,
+          role: 'STUDENT',
+          name: student.name,
+          institutionId: student.institutionId,
+          institutionName: student.institutionName,
         },
       });
     }
@@ -310,6 +377,23 @@ router.get('/me', async (req, res) => {
         user: {
           ...faculty.toObject(),
           role: 'FACULTY',
+        },
+      });
+    }
+
+    if (decoded.role === 'STUDENT') {
+      const student = await Student.findById(decoded.id).select('-password');
+      if (!student) {
+        return res.status(404).json({
+          success: false,
+          message: 'Student not found',
+        });
+      }
+      return res.json({
+        success: true,
+        user: {
+          ...student.toObject(),
+          role: 'STUDENT',
         },
       });
     }
