@@ -7,7 +7,8 @@ import AdminLayout from './admin/layout/AdminLayout';
 import Dashboard from './admin/pages/Dashboard';
 import Students from './admin/pages/Students';
 import Faculty from './admin/pages/Faculty';
-import StudentData from './admin/pages/StudentData'; // Changed from Courses to StudentData
+import Counselor from './admin/pages/Counselor'; 
+import StudentData from './admin/pages/StudentData'; // <-- Fixed path
 import Predict from './admin/pages/Predict';
 import Analytics from './admin/pages/Analytics';
 import Settings from './admin/pages/Settings';
@@ -18,6 +19,8 @@ import FacultyDashboard from './faculty/pages/Dashboard';
 import MyStudents from './faculty/pages/MyStudents';
 import Activities from './faculty/pages/Activities';
 import Attendance from './faculty/pages/Attendance';
+import FacultyAlerts from './faculty/pages/FacultyAlerts';
+import FacultyInterventions from './faculty/pages/FacultyInterventions';
 
 // ==================== PROTECTED ROUTE COMPONENT ====================
 const ProtectedRoute = ({ children, requiredRole }) => {
@@ -53,7 +56,8 @@ const App = () => {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="students" element={<Students />} />
           <Route path="faculty" element={<Faculty />} />
-          <Route path="student-data" element={<StudentData />} /> {/* Changed from "courses" to "student-data" */}
+          <Route path="counselor" element={<Counselor />} />
+          <Route path="student-data" element={<StudentData />} />
           <Route path="predict" element={<Predict />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="settings" element={<Settings />} />
@@ -70,6 +74,8 @@ const App = () => {
           <Route path="my-students" element={<MyStudents />} />
           <Route path="activities" element={<Activities />} />
           <Route path="attendance" element={<Attendance />} />
+          <Route path="alerts" element={<FacultyAlerts />} />
+          <Route path="interventions" element={<FacultyInterventions />} />
         </Route>
       </Routes>
     </Router>

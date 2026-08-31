@@ -37,6 +37,7 @@ const studentRoutes = require('./routes/studentRoutes');
 const facultyRoutes = require('./routes/facultyRoutes');
 const studentActivityRoutes = require('./routes/studentActivityRoutes');
 const predictionRoutes = require('./routes/predictionRoutes');
+const counselorRoutes = require('./routes/counselorRoutes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/institutions', institutionRoutes);
@@ -44,6 +45,7 @@ app.use('/api/students', studentRoutes);
 app.use('/api/faculty', facultyRoutes);
 app.use('/api/student-activities', studentActivityRoutes);
 app.use('/api/predict', predictionRoutes);
+app.use('/api/counselor', counselorRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -56,7 +58,19 @@ app.get('/api/health', (req, res) => {
 // Error handler
 app.use(errorHandler);
 
-// IMPORTANT:
-// Do NOT use app.listen() for the Vercel version.
-// Export the Express app instead.
+// =====================================================
+// LOCAL + VERCEL SUPPORT
+// =====================================================
+
+// When running locally, start the Express server.
+// When running on Vercel, Vercel will use the exported app.
+if (process.env.VERCEL !== '1') {
+  const PORT = process.env.PORT || 5000;
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running at http://localhost:${PORT}`);
+  });
+}
+
+// Export Express app for Vercel
 module.exports = app;

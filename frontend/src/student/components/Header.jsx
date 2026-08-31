@@ -9,7 +9,7 @@ import {
   Settings
 } from 'lucide-react';
 
-const Header = ({ toggleMobileMenu }) => {
+const Header = ({ toggleMobileMenu, isCollapsed }) => {
   const [user, setUser] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [notificationCount, setNotificationCount] = useState(3);
@@ -28,7 +28,11 @@ const Header = ({ toggleMobileMenu }) => {
   };
 
   return (
-    <header className="bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between">
+    <header 
+      className={`fixed top-0 right-0 z-30 bg-white border-b border-gray-200 h-16 px-4 md:px-6 flex items-center justify-between transition-all duration-300 ${
+        isCollapsed ? 'left-16' : 'left-56'
+      }`}
+    >
       {/* Left Section */}
       <div className="flex items-center gap-4">
         <button

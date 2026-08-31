@@ -71,6 +71,7 @@ router.post('/login', async (req, res) => {
       const token = jwt.sign(
         { 
           id: institution._id, 
+          _id: institution._id,
           email: institution.email, 
           role: 'INSTITUTION_ADMIN',
           institutionId: institution._id,
@@ -125,6 +126,7 @@ router.post('/login', async (req, res) => {
       const token = jwt.sign(
         { 
           id: faculty._id, 
+          _id: faculty._id,
           email: faculty.email, 
           role: 'FACULTY',
           institutionId: faculty.institutionId,
@@ -190,6 +192,7 @@ router.post('/login', async (req, res) => {
       const token = jwt.sign(
         { 
           id: student._id, 
+          _id: student._id,
           email: student.email, 
           role: 'STUDENT',
           institutionId: student.institutionId,

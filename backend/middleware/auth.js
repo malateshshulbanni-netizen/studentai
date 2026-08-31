@@ -69,8 +69,6 @@ const studentOnly = (req, res, next) => {
   next();
 };
 
-// Add these middleware functions at the end of your auth.js file
-
 // Faculty or Institution Admin Middleware
 const facultyOrInstitutionAdmin = (req, res, next) => {
   console.log('FacultyOrInstitutionAdmin - User role:', req.user?.role);
@@ -97,7 +95,107 @@ const adminOrSuperAdmin = (req, res, next) => {
   }
 };
 
-// Export all middleware
+// ============================================================
+// NEW MIDDLEWARE - Student or Institution Admin
+// ============================================================
+
+// Student or Institution Admin Middleware
+const studentOrInstitutionAdmin = (req, res, next) => {
+  console.log('StudentOrInstitutionAdmin - User role:', req.user?.role);
+  console.log('StudentOrInstitutionAdmin - User ID:', req.user?._id || req.user?.id);
+  console.log('StudentOrInstitutionAdmin - Request params:', req.params);
+  
+  // Allow Institution Admins
+  if (req.user?.role === 'INSTITUTION_ADMIN') {
+    console.log('✅ Institution Admin access granted');
+    return next();
+  }
+  
+  // Allow Students to access their own data
+  if (req.user?.role === 'STUDENT') {
+    const studentId = req.params.id;
+    const userId = req.user._id || req.user.id;
+    
+    if (studentId === userId || studentId === userId.toString()) {
+      console.log('✅ Student accessing their own data');
+      return next();
+    }
+    
+    console.log('❌ Student trying to access another student\'s data');
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Students can only access their own data.'
+    });
+  }
+  
+  return res.status(403).json({
+    success: false,
+    message: 'Access denied. Institution Admin or Student only. Your role: ' + req.user?.role,
+  });
+};
+
+// ============================================================
+// NEW MIDDLEWARE - Student or Faculty or Institution Admin
+// ============================================================
+
+// Student or Faculty or Institution Admin Middleware
+const studentFacultyOrInstitutionAdmin = (req, res, next) => {
+  console.log('StudentFacultyOrInstitutionAdmin - User role:', req.user?.role);
+  console.log('StudentFacultyOrInstitutionAdmin - User ID:', req.user?._id || req.user?.id);
+  console.log('StudentFacultyOrInstitutionAdmin - Request query:', req.query);
+  console.log('StudentFacultyOrInstitutionAdmin - Request params:', req.params);
+  
+  // Allow Institution Admins
+  if (req.user?.role === 'INSTITUTION_ADMIN') {
+    console.log('✅ Institution Admin access granted');
+    return next();
+  }
+  
+  // Allow Faculty
+  if (req.user?.role === 'FACULTY') {
+    console.log('✅ Faculty access granted');
+    return next();
+  }
+  
+  // Allow Students to access their own data
+  if (req.user?.role === 'STUDENT') {
+    // Check if student is trying to access their own activities
+    // For GET /api/student-activities?studentId=xxx
+    const studentId = req.query.studentId || req.params.studentId || req.params.id;
+    const userId = req.user._id || req.user.id;
+    
+    // If no studentId is provided, assume they want their own data
+    if (!studentId) {
+      console.log('✅ Student accessing their own data (no studentId param)');
+      // Add studentId to query for the controller
+      if (req.query) {
+        req.query.studentId = userId;
+      }
+      return next();
+    }
+    
+    if (studentId === userId || studentId === userId.toString()) {
+      console.log('✅ Student accessing their own data');
+      return next();
+    }
+    
+    console.log('❌ Student trying to access another student\'s data');
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Students can only access their own data.'
+    });
+  }
+  
+  return res.status(403).json({
+    success: false,
+    message: 'Access denied. Faculty, Institution Admin or Student only. Your role: ' + req.user?.role,
+  });
+};
+
+// ============================================================
+// EXPORT
+// ============================================================
+
 module.exports = { 
   authMiddleware, 
   superAdminOnly, 
@@ -105,5 +203,7 @@ module.exports = {
   facultyOnly,
   studentOnly,
   facultyOrInstitutionAdmin,
-  adminOrSuperAdmin
+  adminOrSuperAdmin,
+  studentOrInstitutionAdmin,            // <-- Added
+  studentFacultyOrInstitutionAdmin      // <-- Added
 };

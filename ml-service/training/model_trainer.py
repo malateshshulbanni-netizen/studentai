@@ -25,12 +25,16 @@ class ModelTrainer:
 
         self.model = None
 
-        self.label_encoder = None
-
+        # Encoder for each categorical feature
         self.encoders = {}
 
+        # Backward compatibility
+        self.label_encoder = None
+
+        # Exact training feature order
         self.feature_names = []
 
+        # Training metrics
         self.model_metrics = {}
 
     # ========================================================
@@ -46,7 +50,7 @@ class ModelTrainer:
         df = df.copy()
 
         # ----------------------------------------------------
-        # Remove target from features
+        # Validate target
         # ----------------------------------------------------
 
         if "dropout" not in df.columns:
@@ -55,11 +59,11 @@ class ModelTrainer:
                 "Dataset must contain a 'dropout' column."
             )
 
-        y = df["dropout"].copy()
+        # ----------------------------------------------------
+        # TARGET
+        # ----------------------------------------------------
 
-        # ----------------------------------------------------
-        # Convert target to numeric
-        # ----------------------------------------------------
+        y = df["dropout"].copy()
 
         if not pd.api.types.is_numeric_dtype(y):
 
@@ -76,7 +80,7 @@ class ModelTrainer:
                 errors="coerce"
             )
 
-        # Remove rows where target is missing
+        # Remove invalid target rows
         valid_target = y.notna()
 
         df = df.loc[
@@ -85,12 +89,12 @@ class ModelTrainer:
 
         y = y.loc[
             valid_target
-        ]
+        ].copy()
 
         y = y.astype(int)
 
         # ----------------------------------------------------
-        # Remove target and ID/name columns
+        # REMOVE NON-FEATURE COLUMNS
         # ----------------------------------------------------
 
         columns_to_remove = [
@@ -108,15 +112,20 @@ class ModelTrainer:
             errors="ignore"
         )
 
+        if feature_df.empty:
+
+            raise ValueError(
+                "No usable features found in dataset."
+            )
+
         # ----------------------------------------------------
-        # Remove columns with no useful information
+        # REMOVE CONSTANT COLUMNS
         # ----------------------------------------------------
 
         useless_columns = []
 
         for column in feature_df.columns:
 
-            # All values same
             if feature_df[column].nunique(
                 dropna=False
             ) <= 1:
@@ -137,20 +146,33 @@ class ModelTrainer:
             )
 
         # ----------------------------------------------------
-        # Encode categorical columns
+        # RESET ENCODERS
         # ----------------------------------------------------
 
         self.encoders = {}
+        self.label_encoder = None
+
+        # ----------------------------------------------------
+        # ENCODE FEATURES
+        # ----------------------------------------------------
+
+        categorical_columns = []
 
         for column in feature_df.columns:
 
-            if (
+            is_categorical = (
                 feature_df[column].dtype == "object"
                 or
                 str(
                     feature_df[column].dtype
                 ).startswith("category")
-            ):
+            )
+
+            if is_categorical:
+
+                categorical_columns.append(
+                    column
+                )
 
                 print(
                     f"[INFO] Encoding categorical "
@@ -165,18 +187,38 @@ class ModelTrainer:
                     .astype(str)
                 )
 
+                # Always include Unknown
+                values_for_fit = pd.concat(
+                    [
+                        values,
+                        pd.Series(["Unknown"])
+                    ],
+                    ignore_index=True
+                )
+
+                encoder.fit(
+                    values_for_fit
+                )
+
                 feature_df[column] = (
-                    encoder.fit_transform(
-                        values
+                    feature_df[column]
+                    .fillna("Unknown")
+                    .astype(str)
+                )
+
+                feature_df[column] = (
+                    encoder.transform(
+                        feature_df[column]
                     )
                 )
 
-                self.encoders[
-                    column
-                ] = encoder
-                
-                # Also store the main label encoder for backward compatibility
-                if column == "engagement" or "engagement" in column.lower():
+                # IMPORTANT:
+                # Store encoder for prediction
+                self.encoders[column] = encoder
+
+                # Legacy compatibility
+                if self.label_encoder is None:
+
                     self.label_encoder = encoder
 
             else:
@@ -187,50 +229,48 @@ class ModelTrainer:
                 )
 
         # ----------------------------------------------------
-        # If no specific engagement column, use the first encoder as label_encoder
+        # FORCE ALL FEATURES TO NUMERIC
         # ----------------------------------------------------
-        if self.label_encoder is None and self.encoders:
-            # Use the first encoder as default
-            first_key = list(self.encoders.keys())[0]
-            self.label_encoder = self.encoders[first_key]
-            print(f"[INFO] Set label_encoder from column: {first_key}")
+
+        for column in feature_df.columns:
+
+            feature_df[column] = pd.to_numeric(
+                feature_df[column],
+                errors="coerce"
+            )
 
         # ----------------------------------------------------
-        # Fill missing numeric values
+        # FILL MISSING VALUES
         # ----------------------------------------------------
 
         for column in feature_df.columns:
 
             if feature_df[column].isna().any():
 
-                if pd.api.types.is_numeric_dtype(
+                median_value = (
                     feature_df[column]
-                ):
+                    .median()
+                )
 
-                    median_value = (
-                        feature_df[column]
-                        .median()
-                    )
+                if pd.isna(median_value):
 
-                    if pd.isna(
-                        median_value
-                    ):
-                        median_value = 0
+                    median_value = 0
 
-                    feature_df[column] = (
-                        feature_df[column]
-                        .fillna(median_value)
-                    )
-
-                else:
-
-                    feature_df[column] = (
-                        feature_df[column]
-                        .fillna(0)
-                    )
+                feature_df[column] = (
+                    feature_df[column]
+                    .fillna(median_value)
+                )
 
         # ----------------------------------------------------
-        # Feature names
+        # FINAL NUMERIC SAFETY
+        # ----------------------------------------------------
+
+        feature_df = feature_df.astype(
+            np.float32
+        )
+
+        # ----------------------------------------------------
+        # FEATURE NAMES
         # ----------------------------------------------------
 
         self.feature_names = list(
@@ -241,12 +281,61 @@ class ModelTrainer:
             f"[OK] Selected "
             f"{len(self.feature_names)} features"
         )
-        
-        if self.label_encoder:
+
+        print(
+            f"[OK] Feature names: "
+            f"{self.feature_names}"
+        )
+
+        print(
+            f"[OK] Categorical columns: "
+            f"{categorical_columns}"
+        )
+
+        print(
+            f"[OK] Saved encoders: "
+            f"{list(self.encoders.keys())}"
+        )
+
+        if self.label_encoder is not None:
+
             print(
-                f"[OK] Label encoder classes: "
+                "[INFO] Legacy label encoder available: "
                 f"{self.label_encoder.classes_.tolist()}"
             )
+
+        # ----------------------------------------------------
+        # FINAL VALIDATION
+        # ----------------------------------------------------
+
+        print(
+            "\n[INFO] Final training dtypes:"
+        )
+
+        print(
+            feature_df.dtypes
+        )
+
+        invalid_columns = [
+            column
+            for column in feature_df.columns
+            if not (
+                pd.api.types.is_numeric_dtype(
+                    feature_df[column]
+                )
+            )
+        ]
+
+        if invalid_columns:
+
+            raise ValueError(
+                "Non-numeric columns remain after "
+                f"encoding: {invalid_columns}"
+            )
+
+        print(
+            "\n[OK] All training features are numeric."
+        )
 
         return feature_df, y
 
@@ -264,8 +353,30 @@ class ModelTrainer:
             )
 
         # ----------------------------------------------------
-        # Check target classes
+        # FINAL X NUMERIC CHECK
         # ----------------------------------------------------
+
+        X = X.copy()
+
+        for column in X.columns:
+
+            X[column] = pd.to_numeric(
+                X[column],
+                errors="coerce"
+            )
+
+        X = X.astype(
+            np.float32
+        )
+
+        # ----------------------------------------------------
+        # TARGET
+        # ----------------------------------------------------
+
+        y = pd.to_numeric(
+            y,
+            errors="coerce"
+        ).astype(int)
 
         class_counts = y.value_counts()
 
@@ -285,7 +396,7 @@ class ModelTrainer:
             )
 
         # ----------------------------------------------------
-        # Train/test split
+        # TRAIN TEST SPLIT
         # ----------------------------------------------------
 
         X_train, X_test, y_train, y_test = (
@@ -314,14 +425,14 @@ class ModelTrainer:
         )
 
         # ----------------------------------------------------
-        # Calculate class imbalance
+        # CLASS IMBALANCE
         # ----------------------------------------------------
 
-        negative_count = (
+        negative_count = int(
             (y_train == 0).sum()
         )
 
-        positive_count = (
+        positive_count = int(
             (y_train == 1).sum()
         )
 
@@ -352,7 +463,7 @@ class ModelTrainer:
         )
 
         # ----------------------------------------------------
-        # XGBoost
+        # XGBOOST
         # ----------------------------------------------------
 
         self.model = XGBClassifier(
@@ -373,11 +484,15 @@ class ModelTrainer:
 
             objective="binary:logistic",
 
-            scale_pos_weight=scale_pos_weight
+            scale_pos_weight=scale_pos_weight,
+
+            # IMPORTANT:
+            # We are NOT using categorical mode.
+            enable_categorical=False
         )
 
         # ----------------------------------------------------
-        # Fit
+        # TRAIN
         # ----------------------------------------------------
 
         print(
@@ -389,8 +504,12 @@ class ModelTrainer:
             y_train
         )
 
+        print(
+            "[OK] XGBoost training completed."
+        )
+
         # ----------------------------------------------------
-        # Predictions
+        # PREDICTIONS
         # ----------------------------------------------------
 
         y_pred = self.model.predict(
@@ -398,13 +517,14 @@ class ModelTrainer:
         )
 
         y_pred_proba = (
-            self.model.predict_proba(
+            self.model
+            .predict_proba(
                 X_test
             )[:, 1]
         )
 
         # ----------------------------------------------------
-        # Metrics
+        # METRICS
         # ----------------------------------------------------
 
         accuracy = accuracy_score(
@@ -442,7 +562,7 @@ class ModelTrainer:
             roc_auc = 0.0
 
         # ----------------------------------------------------
-        # Confusion matrix
+        # CONFUSION MATRIX
         # ----------------------------------------------------
 
         cm = confusion_matrix(
@@ -452,16 +572,14 @@ class ModelTrainer:
 
         if cm.shape == (2, 2):
 
-            tn, fp, fn, tp = (
-                cm.ravel()
-            )
+            tn, fp, fn, tp = cm.ravel()
 
         else:
 
             tn = fp = fn = tp = 0
 
         # ----------------------------------------------------
-        # Classification report
+        # REPORT
         # ----------------------------------------------------
 
         report = classification_report(
@@ -498,20 +616,16 @@ class ModelTrainer:
             "\n[CONFUSION MATRIX]"
         )
 
-        print(
-            cm
-        )
+        print(cm)
 
         print(
             "\n[CLASSIFICATION REPORT]"
         )
 
-        print(
-            report
-        )
+        print(report)
 
         # ----------------------------------------------------
-        # Feature importance
+        # FEATURE IMPORTANCE
         # ----------------------------------------------------
 
         feature_importance = {}
@@ -538,7 +652,7 @@ class ModelTrainer:
             )
 
         # ----------------------------------------------------
-        # Store metrics
+        # METRICS
         # ----------------------------------------------------
 
         dropout_rate = float(
@@ -591,6 +705,10 @@ class ModelTrainer:
 
             "model_type": "XGBClassifier",
 
+            "categorical_features": list(
+                self.encoders.keys()
+            ),
+
             "confusion_matrix": [
                 [
                     int(tn),
@@ -602,26 +720,17 @@ class ModelTrainer:
                 ]
             ],
 
-            "true_negatives": int(
-                tn
-            ),
+            "true_negatives": int(tn),
 
-            "false_positives": int(
-                fp
-            ),
+            "false_positives": int(fp),
 
-            "false_negatives": int(
-                fn
-            ),
+            "false_negatives": int(fn),
 
-            "true_positives": int(
-                tp
-            ),
+            "true_positives": int(tp),
 
             "feature_importance": {
                 k: float(v)
-                for k, v
-                in feature_importance.items()
+                for k, v in feature_importance.items()
             }
         }
 
@@ -656,15 +765,16 @@ class ModelTrainer:
                 exist_ok=True
             )
 
-        # ----------------------------------------------------
-        # Save model with ALL components
-        # ----------------------------------------------------
-
         save_data = {
+
             "model": self.model,
+
             "label_encoder": self.label_encoder,
+
             "encoders": self.encoders,
+
             "feature_names": self.feature_names,
+
             "metrics": self.model_metrics
         }
 
@@ -677,15 +787,9 @@ class ModelTrainer:
             f"[OK] Model saved to "
             f"{filepath}"
         )
-        
-        if self.label_encoder:
-            print(
-                f"[OK] Label encoder classes: "
-                f"{self.label_encoder.classes_.tolist()}"
-            )
 
         # ----------------------------------------------------
-        # Save metrics
+        # METRICS JSON
         # ----------------------------------------------------
 
         metrics_path = filepath.replace(
@@ -719,9 +823,7 @@ class ModelTrainer:
         filepath="models/student_dropout_model.pkl"
     ):
 
-        if not os.path.exists(
-            filepath
-        ):
+        if not os.path.exists(filepath):
 
             raise FileNotFoundError(
                 f"Model file {filepath} not found"
@@ -758,12 +860,16 @@ class ModelTrainer:
             f"[OK] Model loaded from "
             f"{filepath}"
         )
-        
-        if self.label_encoder:
-            print(
-                f"[OK] Label encoder classes: "
-                f"{self.label_encoder.classes_.tolist()}"
-            )
+
+        print(
+            f"[OK] Training features: "
+            f"{self.feature_names}"
+        )
+
+        print(
+            f"[OK] Encoders: "
+            f"{list(self.encoders.keys())}"
+        )
 
         return self.model
 
@@ -771,10 +877,7 @@ class ModelTrainer:
     # PREDICT
     # ========================================================
 
-    def predict(
-        self,
-        features
-    ):
+    def predict(self, features):
 
         if self.model is None:
 
@@ -783,7 +886,7 @@ class ModelTrainer:
             )
 
         # ----------------------------------------------------
-        # Dictionary input
+        # INPUT -> DATAFRAME
         # ----------------------------------------------------
 
         if isinstance(
@@ -795,10 +898,6 @@ class ModelTrainer:
                 [features]
             )
 
-        # ----------------------------------------------------
-        # DataFrame input
-        # ----------------------------------------------------
-
         elif isinstance(
             features,
             pd.DataFrame
@@ -809,117 +908,284 @@ class ModelTrainer:
         else:
 
             raise ValueError(
-                "Features must be a "
-                "dictionary or DataFrame."
+                "Features must be a dictionary "
+                "or DataFrame."
             )
 
         # ----------------------------------------------------
-        # Remove unused columns
+        # REMOVE NON-FEATURE COLUMNS
         # ----------------------------------------------------
 
-        for column in [
+        columns_to_remove = [
             "student_id",
             "name",
             "dropout"
-        ]:
+        ]
 
-            if column in df.columns:
-
-                df = df.drop(
-                    columns=[column]
-                )
-
-        # ----------------------------------------------------
-        # Apply saved categorical encoders
-        # ----------------------------------------------------
-
-        for column, encoder in (
-            self.encoders.items()
-        ):
-
-            if column in df.columns:
-
-                values = (
-                    df[column]
-                    .fillna("Unknown")
-                    .astype(str)
-                )
-
-                known_values = set(
-                    encoder.classes_
-                )
-
-                # Unknown categories become
-                # the first known class.
-                values = values.apply(
-                    lambda x:
-                    x
-                    if x in known_values
-                    else encoder.classes_[0]
-                )
-
-                df[column] = (
-                    encoder.transform(
-                        values
-                    )
-                )
+        df = df.drop(
+            columns=[
+                col
+                for col in columns_to_remove
+                if col in df.columns
+            ],
+            errors="ignore"
+        )
 
         # ----------------------------------------------------
-        # Make sure feature order matches training
+        # BUILD EXACT TRAINING FEATURES
         # ----------------------------------------------------
+
+        final_df = pd.DataFrame(
+            index=df.index
+        )
 
         for column in self.feature_names:
 
-            if column not in df.columns:
+            if column in df.columns:
 
-                df[column] = 0
+                final_df[column] = df[column]
 
-        df = df[
+            else:
+
+                final_df[column] = np.nan
+
+        # ----------------------------------------------------
+        # APPLY ENCODERS
+        # ----------------------------------------------------
+
+        for column, encoder in self.encoders.items():
+
+            if column not in final_df.columns:
+
+                continue
+
+            values = final_df[column]
+
+            encoded_values = []
+
+            known_values = set(
+                encoder.classes_
+            )
+
+            for value in values:
+
+                if pd.isna(value):
+
+                    encoded_values.append(
+                        np.nan
+                    )
+
+                    continue
+
+                # If frontend already sends a number,
+                # keep it as a number.
+                if isinstance(
+                    value,
+                    (int, float, np.integer, np.floating)
+                ):
+
+                    if pd.isna(value):
+
+                        encoded_values.append(
+                            np.nan
+                        )
+
+                    else:
+
+                        encoded_values.append(
+                            float(value)
+                        )
+
+                    continue
+
+                value = str(value).strip()
+
+                if value in known_values:
+
+                    encoded_value = (
+                        encoder.transform(
+                            [value]
+                        )[0]
+                    )
+
+                    encoded_values.append(
+                        float(encoded_value)
+                    )
+
+                else:
+
+                    print(
+                        f"[WARN] Unknown category "
+                        f"'{value}' for {column}; "
+                        f"using NaN."
+                    )
+
+                    encoded_values.append(
+                        np.nan
+                    )
+
+            # IMPORTANT:
+            # Explicitly create numeric Series.
+            final_df[column] = pd.Series(
+                encoded_values,
+                index=final_df.index,
+                dtype="float32"
+            )
+
+        # ----------------------------------------------------
+        # NUMERIC FEATURES
+        # ----------------------------------------------------
+
+        for column in final_df.columns:
+
+            if column not in self.encoders:
+
+                final_df[column] = pd.to_numeric(
+                    final_df[column],
+                    errors="coerce"
+                )
+
+                final_df[column] = (
+                    final_df[column]
+                    .astype("float32")
+                )
+
+        # ----------------------------------------------------
+        # EXACT FEATURE ORDER
+        # ----------------------------------------------------
+
+        final_df = final_df[
             self.feature_names
         ]
 
         # ----------------------------------------------------
-        # Numeric conversion
+        # FINAL NUMERIC SAFETY
         # ----------------------------------------------------
 
-        for column in df.columns:
+        for column in final_df.columns:
 
-            df[column] = pd.to_numeric(
-                df[column],
+            final_df[column] = pd.to_numeric(
+                final_df[column],
                 errors="coerce"
             )
 
-        df = df.fillna(0)
+        final_df = final_df.astype(
+            np.float32
+        )
 
         # ----------------------------------------------------
-        # Prediction
+        # VALIDATE DTYPES BEFORE XGBOOST
+        # ----------------------------------------------------
+
+        invalid_columns = [
+            column
+            for column in final_df.columns
+            if not pd.api.types.is_numeric_dtype(
+                final_df[column]
+            )
+        ]
+
+        if invalid_columns:
+
+            raise ValueError(
+                "Prediction dataframe contains "
+                f"non-numeric columns: {invalid_columns}"
+            )
+
+        # ----------------------------------------------------
+        # DEBUG
+        # ----------------------------------------------------
+
+        print(
+            "\n[INFO] Prediction dataframe:"
+        )
+
+        print(
+            final_df
+        )
+
+        print(
+            "\n[INFO] Prediction dtypes:"
+        )
+
+        print(
+            final_df.dtypes
+        )
+
+        # ----------------------------------------------------
+        # PREDICTION
         # ----------------------------------------------------
 
         prediction = self.model.predict(
-            df
+            final_df
         )
 
         probability = (
             self.model
-            .predict_proba(df)[:, 1]
+            .predict_proba(
+                final_df
+            )[:, 1]
         )
 
+        probability_value = float(
+            probability[0]
+        )
+
+        # ----------------------------------------------------
+        # RISK LEVEL
+        # ----------------------------------------------------
+
+        if probability_value >= 0.70:
+
+            risk_level = "HIGH"
+
+        elif probability_value >= 0.40:
+
+            risk_level = "MEDIUM"
+
+        else:
+
+            risk_level = "LOW"
+
+        # ----------------------------------------------------
+        # USED / MISSING FEATURES
+        # ----------------------------------------------------
+
+        features_used = []
+
+        missing_features = []
+
+        for column in self.feature_names:
+
+            value = final_df.iloc[0][column]
+
+            if pd.isna(value):
+
+                missing_features.append(
+                    column
+                )
+
+            else:
+
+                features_used.append(
+                    column
+                )
+
+        # ----------------------------------------------------
+        # RESULT
+        # ----------------------------------------------------
+
         return {
+
             "prediction": int(
                 prediction[0]
             ),
 
-            "probability": float(
-                probability[0]
-            ),
+            "probability": probability_value,
 
-            "risk_level": (
-                "HIGH"
-                if probability[0] > 0.7
-                else
-                "MEDIUM"
-                if probability[0] > 0.4
-                else
-                "LOW"
-            )
+            "risk_level": risk_level,
+
+            "features_used": features_used,
+
+            "missing_features": missing_features
         }

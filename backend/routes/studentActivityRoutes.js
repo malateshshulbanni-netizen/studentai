@@ -14,7 +14,9 @@ const {
   authMiddleware, 
   facultyOnly,
   facultyOrInstitutionAdmin,
-  adminOrSuperAdmin
+  adminOrSuperAdmin,
+  studentOrInstitutionAdmin,
+  studentFacultyOrInstitutionAdmin
 } = require('../middleware/auth');
 
 // Apply auth middleware to all routes
@@ -39,11 +41,13 @@ router.get('/trend/:studentId', facultyOrInstitutionAdmin, getStudentTrend);
 // Institution specific - Faculty or Institution Admin
 router.get('/institution/:institutionId', facultyOrInstitutionAdmin, getActivitiesByInstitution);
 
-// CRUD operations
+// Get activities - Allow Faculty, Admin, and Students (their own)
+// Student can access their own activities by passing studentId query param
 router
   .route('/')
-  .get(facultyOrInstitutionAdmin, getActivities);
+  .get(studentFacultyOrInstitutionAdmin, getActivities);
 
+// CRUD operations
 router
   .route('/:id')
   .get(facultyOrInstitutionAdmin, getActivityById)

@@ -1,75 +1,156 @@
-import pandas as pd
-import numpy as np
 import os
+import pandas as pd
+
+
+# ============================================================
+# LOAD DATA
+# ============================================================
 
 def load_data(file_path):
-    """Load student data from CSV"""
+    """
+    Load the complete student dataset.
+
+    The loader does NOT select a fixed number of features.
+    All columns are kept so that ModelTrainer can decide
+    which columns are useful for training.
+    """
+
     if not os.path.exists(file_path):
-        print(f"[WARNING] File {file_path} not found. Creating sample data...")
-        create_sample_data(file_path)
-    
-    df = pd.read_csv(file_path)
-    print(f"[OK] Loaded {len(df)} records from {file_path}")
+        raise FileNotFoundError(
+            f"Dataset not found: {file_path}"
+        )
+
+    try:
+        df = pd.read_csv(file_path)
+
+    except Exception as e:
+        raise ValueError(
+            f"Could not read CSV file: {e}"
+        )
+
+    if df.empty:
+        raise ValueError(
+            "Dataset is empty."
+        )
+
+    if "dropout" not in df.columns:
+        raise ValueError(
+            "Dataset must contain a 'dropout' column."
+        )
+
+    print(
+        f"[OK] Loaded {len(df):,} records "
+        f"from {file_path}"
+    )
+
+    print(
+        f"[INFO] Total columns: {len(df.columns)}"
+    )
+
+    print(
+        f"[INFO] Dataset columns:"
+    )
+
+    for column in df.columns:
+        print(f"  - {column}")
+
     return df
 
-def create_sample_data(file_path):
-    """Create sample student data for training"""
-    np.random.seed(42)
-    n_samples = 1000
-    
-    # Generate synthetic data
-    attendance = np.random.randint(30, 100, n_samples)
-    gpa = np.round(np.random.uniform(2.0, 9.5, n_samples), 1)
-    backlogs = np.random.randint(0, 8, n_samples)
-    assignment_completion = np.random.randint(20, 100, n_samples)
-    engagement = np.random.choice(['High', 'Medium', 'Low'], n_samples)
-    
-    # Calculate dropout (simplified)
-    dropout = []
-    for i in range(n_samples):
-        score = 0
-        if attendance[i] < 60:
-            score += 1
-        if gpa[i] < 5.0:
-            score += 1
-        if backlogs[i] > 3:
-            score += 1
-        if assignment_completion[i] < 50:
-            score += 1
-        
-        # Higher score = higher dropout chance
-        if score >= 3:
-            dropout.append(1)
-        elif score == 2:
-            dropout.append(1 if np.random.random() < 0.6 else 0)
-        else:
-            dropout.append(1 if np.random.random() < 0.1 else 0)
-    
-    # Create DataFrame
-    df = pd.DataFrame({
-        'student_id': [f'STU{i:04d}' for i in range(n_samples)],
-        'attendance': attendance,
-        'gpa': gpa,
-        'backlogs': backlogs,
-        'assignment_completion': assignment_completion,
-        'engagement': engagement,
-        'dropout': dropout
-    })
-    
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    df.to_csv(file_path, index=False)
-    print(f"[OK] Sample data created with {n_samples} records at {file_path}")
-    print(f"[INFO] Dropout rate: {df['dropout'].mean()*100:.1f}%")
+
+# ============================================================
+# PREPROCESS DATA
+# ============================================================
 
 def preprocess_data(df):
-    """Preprocess the data for training"""
-    if 'student_id' in df.columns:
-        X = df.drop(['student_id', 'dropout'], axis=1)
-    else:
-        X = df.drop(['dropout'], axis=1)
-    y = df['dropout']
-    X = X.fillna(X.mean())
+    """
+    Basic dataset preparation.
+
+    IMPORTANT:
+    This function does NOT limit the dataset to 5 features.
+
+    All columns except:
+        student_id
+        name
+        dropout
+
+    are returned as potential model features.
+
+    Detailed encoding/imputation should be handled by
+    ModelTrainer so the exact same preprocessing can be
+    saved and reused during prediction.
+    """
+
+    if not isinstance(df, pd.DataFrame):
+        raise TypeError(
+            "df must be a pandas DataFrame."
+        )
+
+    if "dropout" not in df.columns:
+        raise ValueError(
+            "Dataset must contain a 'dropout' column."
+        )
+
+    # --------------------------------------------------------
+    # Target
+    # --------------------------------------------------------
+
+    y = df["dropout"].copy()
+
+    # --------------------------------------------------------
+    # Remove ID / name / target
+    # --------------------------------------------------------
+
+    columns_to_remove = [
+        "student_id",
+        "name",
+        "dropout"
+    ]
+
+    feature_columns = [
+        column
+        for column in df.columns
+        if column not in columns_to_remove
+    ]
+
+    X = df[feature_columns].copy()
+
+    print(
+        f"[INFO] Potential training features: "
+        f"{len(X.columns)}"
+    )
+
+    print(
+        f"[INFO] Features: {list(X.columns)}"
+    )
+
     return X, y
 
-def get_feature_names():
-    return ['attendance', 'gpa', 'backlogs', 'assignment_completion', 'engagement']
+
+# ============================================================
+# FEATURE NAMES
+# ============================================================
+
+def get_feature_names(df=None):
+    """
+    Return feature names dynamically.
+
+    If a DataFrame is supplied, all columns except
+    student_id, name and dropout are returned.
+
+    No hard-coded 5-feature list is used.
+    """
+
+    if df is None:
+        return []
+
+    excluded_columns = {
+        "student_id",
+        "name",
+        "dropout"
+    }
+
+    return [
+        column
+        for column in df.columns
+        if column not in excluded_columns
+    ]

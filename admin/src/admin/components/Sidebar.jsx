@@ -12,7 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  ClipboardList
+  ClipboardList,
+  MessageCircle
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
@@ -20,6 +21,7 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
     { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { path: '/admin/students', icon: Users, label: 'Students' },
     { path: '/admin/faculty', icon: GraduationCap, label: 'Faculty' },
+    { path: '/admin/counselor', icon: MessageCircle, label: 'Counselor' },
     { path: '/admin/student-data', icon: ClipboardList, label: 'Student Data' },
     { path: '/admin/predict', icon: Brain, label: 'Predict Risk' },
     { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
