@@ -10,7 +10,8 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  HandHelping
+  HandHelping,
+  Video // Added Video icon for meetings
 } from 'lucide-react';
 import API_BASE_URL from '../../config/api';
 
@@ -25,6 +26,7 @@ const FacultySidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
     { path: '/faculty/my-students', icon: Users, label: 'My Students' },
     { path: '/faculty/activities', icon: Activity, label: 'Activities' },
     { path: '/faculty/attendance', icon: CalendarCheck, label: 'Attendance' },
+    { path: '/faculty/meetings', icon: Video, label: 'Meetings' }, // ✅ NEW: Meetings link
   ];
 
   const toggleCollapse = () => {

@@ -39,6 +39,9 @@ const studentActivityRoutes = require('./routes/studentActivityRoutes');
 const predictionRoutes = require('./routes/predictionRoutes');
 const counselorRoutes = require('./routes/counselorRoutes');
 
+// ✅ ADD MEETING ROUTES
+const meetingRoutes = require('./routes/meetingRoutes');
+
 app.use('/api/auth', authRoutes);
 app.use('/api/institutions', institutionRoutes);
 app.use('/api/students', studentRoutes);
@@ -46,6 +49,9 @@ app.use('/api/faculty', facultyRoutes);
 app.use('/api/student-activities', studentActivityRoutes);
 app.use('/api/predict', predictionRoutes);
 app.use('/api/counselor', counselorRoutes);
+
+// ✅ ADD MEETINGS ROUTE
+app.use('/api/meetings', meetingRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

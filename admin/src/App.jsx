@@ -21,6 +21,7 @@ import Activities from './faculty/pages/Activities';
 import Attendance from './faculty/pages/Attendance';
 import FacultyAlerts from './faculty/pages/FacultyAlerts';
 import FacultyInterventions from './faculty/pages/FacultyInterventions';
+import FacultyMeetings from './faculty/pages/FacultyMeetings';
 
 // ==================== PROTECTED ROUTE COMPONENT ====================
 const ProtectedRoute = ({ children, requiredRole }) => {
@@ -76,6 +77,7 @@ const App = () => {
           <Route path="attendance" element={<Attendance />} />
           <Route path="alerts" element={<FacultyAlerts />} />
           <Route path="interventions" element={<FacultyInterventions />} />
+          <Route path="/faculty/meetings" element={<FacultyMeetings />} />
         </Route>
       </Routes>
     </Router>

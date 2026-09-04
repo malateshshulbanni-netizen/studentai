@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken');
+const Faculty = require('../models/Faculty');
+const Student = require('../models/Student');
 
 const authMiddleware = (req, res, next) => {
   try {
@@ -193,6 +195,26 @@ const studentFacultyOrInstitutionAdmin = (req, res, next) => {
 };
 
 // ============================================================
+// NEW MIDDLEWARE FOR MEETINGS - Faculty or Student (for joining)
+// ============================================================
+
+// Faculty or Student Middleware (for meeting access)
+const facultyOrStudent = (req, res, next) => {
+  console.log('FacultyOrStudent - User role:', req.user?.role);
+  console.log('FacultyOrStudent - User ID:', req.user?._id || req.user?.id);
+  
+  if (req.user?.role === 'FACULTY' || req.user?.role === 'STUDENT') {
+    console.log('✅ Faculty or Student access granted');
+    return next();
+  }
+  
+  return res.status(403).json({
+    success: false,
+    message: 'Access denied. Faculty or Student only. Your role: ' + req.user?.role,
+  });
+};
+
+// ============================================================
 // EXPORT
 // ============================================================
 
@@ -204,6 +226,7 @@ module.exports = {
   studentOnly,
   facultyOrInstitutionAdmin,
   adminOrSuperAdmin,
-  studentOrInstitutionAdmin,            // <-- Added
-  studentFacultyOrInstitutionAdmin      // <-- Added
+  studentOrInstitutionAdmin,
+  studentFacultyOrInstitutionAdmin,
+  facultyOrStudent  // <-- Added for meetings
 };

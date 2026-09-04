@@ -29,7 +29,9 @@ import {
   Send,
   Wand2,
   MessageCircle,
-  UserPlus
+  UserPlus,
+  Video,
+  CalendarPlus
 } from 'lucide-react';
 import API_BASE_URL from '../../config/api';
 
@@ -41,6 +43,7 @@ const FacultyInterventions = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [showStudentModal, setShowStudentModal] = useState(false);
   const [showInterventionModal, setShowInterventionModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [predictionResults, setPredictionResults] = useState({});
   const [stats, setStats] = useState({
     total: 0,
@@ -52,6 +55,22 @@ const FacultyInterventions = () => {
   const [counselingHistory, setCounselingHistory] = useState({});
   const [studentActivities, setStudentActivities] = useState({});
   const [hoveredStudent, setHoveredStudent] = useState(null);
+  const [facultyData, setFacultyData] = useState(null);
+
+  // Schedule meeting form state
+  const [meetingData, setMeetingData] = useState({
+    title: '',
+    description: '',
+    meetingDate: '',
+    meetingTime: '',
+    duration: '30',
+    studentId: '',
+    studentName: '',
+    studentEmail: ''
+  });
+  const [schedulingMeeting, setSchedulingMeeting] = useState(false);
+  const [meetingError, setMeetingError] = useState('');
+  const [meetingSuccess, setMeetingSuccess] = useState(false);
 
   // Helper function to map risk levels
   const getRiskLevel = (risk) => {
@@ -69,6 +88,29 @@ const FacultyInterventions = () => {
       return 'Unknown';
     }
     return 'Unknown';
+  };
+
+  // Fetch faculty data
+  const fetchFacultyData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const facultyId = localStorage.getItem('userId');
+      
+      if (!token || !facultyId) return;
+
+      const response = await fetch(`${API_BASE_URL}/api/faculty/${facultyId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setFacultyData(data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching faculty data:', error);
+    }
   };
 
   // Fetch students assigned to faculty
@@ -276,6 +318,7 @@ const FacultyInterventions = () => {
 
   // Load data on mount
   useEffect(() => {
+    fetchFacultyData();
     fetchStudents();
   }, []);
 
@@ -328,6 +371,103 @@ const FacultyInterventions = () => {
   const handleViewInterventions = (student) => {
     setSelectedStudent(student);
     setShowInterventionModal(true);
+  };
+
+  // Open schedule meeting modal
+  const handleScheduleMeeting = (student) => {
+    setSelectedStudent(student);
+    setMeetingData({
+      title: `Counseling Session - ${student.name}`,
+      description: 'Intervention counseling session',
+      meetingDate: '',
+      meetingTime: '',
+      duration: '30',
+      studentId: student._id || student.id,
+      studentName: student.name,
+      studentEmail: student.email || ''
+    });
+    setMeetingError('');
+    setMeetingSuccess(false);
+    setShowScheduleModal(true);
+  };
+
+  // Schedule meeting
+  const handleScheduleMeetingSubmit = async (e) => {
+    e.preventDefault();
+    setSchedulingMeeting(true);
+    setMeetingError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setMeetingError('You must be logged in');
+        setSchedulingMeeting(false);
+        return;
+      }
+
+      // Validate form
+      if (!meetingData.title.trim()) {
+        setMeetingError('Please enter a meeting title');
+        setSchedulingMeeting(false);
+        return;
+      }
+
+      if (!meetingData.meetingDate) {
+        setMeetingError('Please select a meeting date');
+        setSchedulingMeeting(false);
+        return;
+      }
+
+      if (!meetingData.meetingTime) {
+        setMeetingError('Please select a meeting time');
+        setSchedulingMeeting(false);
+        return;
+      }
+
+      // Create meeting payload
+      const meetingPayload = {
+        title: meetingData.title,
+        description: meetingData.description || 'Intervention counseling session',
+        date: meetingData.meetingDate,
+        time: meetingData.meetingTime,
+        duration: parseInt(meetingData.duration),
+        studentId: meetingData.studentId,
+        studentName: meetingData.studentName,
+        studentEmail: meetingData.studentEmail,
+        meetingType: 'intervention'  // Changed from 'type' to 'meetingType'
+      };
+
+      console.log('Sending meeting payload:', meetingPayload);
+
+      const response = await fetch(`${API_BASE_URL}/api/meetings/schedule`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(meetingPayload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setMeetingSuccess(true);
+        setTimeout(() => {
+          setShowScheduleModal(false);
+          setMeetingSuccess(false);
+          // Refresh data
+          fetchStudents();
+        }, 2000);
+      } else {
+        setMeetingError(data.message || 'Failed to schedule meeting');
+        console.error('Meeting schedule error:', data);
+      }
+    } catch (error) {
+      console.error('Error scheduling meeting:', error);
+      setMeetingError('Failed to schedule meeting. Please try again.');
+    } finally {
+      setSchedulingMeeting(false);
+    }
   };
 
   // Format date
@@ -393,7 +533,7 @@ const FacultyInterventions = () => {
         ))}
       </div>
 
-      {/* Search - Only Search, No Filter Buttons */}
+      {/* Search */}
       <div className="mb-6">
         <div className="relative">
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -483,7 +623,7 @@ const FacultyInterventions = () => {
                         )}
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4">
-                        <div className="flex items-center justify-center">
+                        <div className="flex items-center justify-center gap-2">
                           <button 
                             onClick={(e) => {
                               e.stopPropagation();
@@ -493,6 +633,16 @@ const FacultyInterventions = () => {
                             title="View Intervention Plans"
                           >
                             <FileText size={15} className="sm:w-4 sm:h-4" />
+                          </button>
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleScheduleMeeting(student);
+                            }}
+                            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-[#00A9E0] hover:bg-[#00A9E0]/10 transition-colors"
+                            title="Schedule Meeting"
+                          >
+                            <CalendarPlus size={15} className="sm:w-4 sm:h-4" />
                           </button>
                         </div>
                       </td>
@@ -619,6 +769,20 @@ const FacultyInterventions = () => {
                   </div>
                 </div>
               )}
+
+              {/* Schedule Meeting Button */}
+              <div className="border-t border-gray-100 pt-4">
+                <button
+                  onClick={() => {
+                    setShowStudentModal(false);
+                    handleScheduleMeeting(selectedStudent);
+                  }}
+                  className="w-full py-3 bg-[#00A9E0] text-white rounded-lg hover:bg-[#0098C8] transition-colors flex items-center justify-center gap-2"
+                >
+                  <CalendarPlus size={20} />
+                  Schedule Intervention Meeting
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -709,6 +873,179 @@ const FacultyInterventions = () => {
                   </div>
                 )}
               </div>
+
+              {/* Schedule Meeting Button */}
+              <div className="border-t border-gray-100 pt-4">
+                <button
+                  onClick={() => {
+                    setShowInterventionModal(false);
+                    handleScheduleMeeting(selectedStudent);
+                  }}
+                  className="w-full py-3 bg-[#00A9E0] text-white rounded-lg hover:bg-[#0098C8] transition-colors flex items-center justify-center gap-2"
+                >
+                  <CalendarPlus size={20} />
+                  Schedule Intervention Meeting
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Meeting Modal */}
+      {showScheduleModal && selectedStudent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-fadeIn">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#00A9E0] flex items-center justify-center text-white font-bold">
+                  <CalendarPlus size={20} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-[#080C68]">Schedule Meeting</h2>
+                  <p className="text-sm text-gray-500">{selectedStudent.name} - {selectedStudent.usn}</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setShowScheduleModal(false);
+                  setSelectedStudent(null);
+                  setMeetingError('');
+                  setMeetingSuccess(false);
+                }}
+                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-500 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6">
+              {meetingSuccess ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto bg-green-100 rounded-full flex items-center justify-center mb-4">
+                    <CheckCircle size={32} className="text-green-600" />
+                  </div>
+                  <h3 className="text-lg font-bold text-[#080C68] mb-2">Meeting Scheduled!</h3>
+                  <p className="text-gray-500 text-sm">
+                    Meeting with {selectedStudent.name} has been scheduled successfully.
+                  </p>
+                  <p className="text-gray-400 text-xs mt-2">Redirecting...</p>
+                </div>
+              ) : (
+                <form onSubmit={handleScheduleMeetingSubmit} className="space-y-4">
+                  {/* Meeting Title */}
+                  <div>
+                    <label className="block text-sm font-medium text-[#080C68] mb-1">
+                      Meeting Title <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={meetingData.title}
+                      onChange={(e) => setMeetingData({ ...meetingData, title: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors text-sm"
+                      placeholder="e.g., Counseling Session - John Doe"
+                      required
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div>
+                    <label className="block text-sm font-medium text-[#080C68] mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      value={meetingData.description}
+                      onChange={(e) => setMeetingData({ ...meetingData, description: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors text-sm resize-none"
+                      rows="2"
+                      placeholder="Brief description of the meeting purpose"
+                    />
+                  </div>
+
+                  {/* Date and Time */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[#080C68] mb-1">
+                        Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={meetingData.meetingDate}
+                        onChange={(e) => setMeetingData({ ...meetingData, meetingDate: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors text-sm"
+                        min={new Date().toISOString().split('T')[0]}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#080C68] mb-1">
+                        Time <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="time"
+                        value={meetingData.meetingTime}
+                        onChange={(e) => setMeetingData({ ...meetingData, meetingTime: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors text-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  {/* Duration */}
+                  <div>
+                    <label className="block text-sm font-medium text-[#080C68] mb-1">
+                      Duration <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={meetingData.duration}
+                      onChange={(e) => setMeetingData({ ...meetingData, duration: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors text-sm"
+                      required
+                    >
+                      <option value="15">15 minutes</option>
+                      <option value="30">30 minutes</option>
+                      <option value="45">45 minutes</option>
+                      <option value="60">1 hour</option>
+                      <option value="90">1.5 hours</option>
+                      <option value="120">2 hours</option>
+                    </select>
+                  </div>
+
+                  {/* Error Message */}
+                  {meetingError && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
+                      {meetingError}
+                    </div>
+                  )}
+
+                  {/* Student Info (Read-only) */}
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs text-gray-500">Meeting with</p>
+                    <p className="font-medium text-[#080C68]">{selectedStudent.name}</p>
+                    <p className="text-xs text-gray-500">{selectedStudent.usn} • {selectedStudent.course}</p>
+                    <p className="text-xs text-gray-500">{selectedStudent.email}</p>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    disabled={schedulingMeeting}
+                    className="w-full py-3 bg-[#00A9E0] text-white rounded-lg hover:bg-[#0098C8] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {schedulingMeeting ? (
+                      <>
+                        <Loader2 size={20} className="animate-spin" />
+                        Scheduling...
+                      </>
+                    ) : (
+                      <>
+                        <CalendarPlus size={20} />
+                        Schedule Meeting
+                      </>
+                    )}
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         </div>
