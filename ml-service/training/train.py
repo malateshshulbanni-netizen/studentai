@@ -181,6 +181,27 @@ def main():
             f"  {index:>3}. {feature}"
         )
 
+    # Check if this is the standard 11-feature dataset
+    expected_features = [
+        "age",
+        "attendance_percentage",
+        "current_gpa",
+        "failed_subjects",
+        "backlogs",
+        "assignment_completion_percentage",
+        "internal_assessment_marks",
+        "exam_score",
+        "lms_activity_score",
+        "fee_pending",
+        "counseling_sessions"
+    ]
+
+    if set(available_features) == set(expected_features):
+        print("\n[OK] Using standard 11 features for training")
+        print("  Features:")
+        for i, feature in enumerate(expected_features, 1):
+            print(f"    {i:>2}. {feature}")
+
     # ========================================================
     # TARGET DISTRIBUTION
     # ========================================================
@@ -277,11 +298,11 @@ def main():
         )
 
     # ========================================================
-    # TRAIN MODEL
+    # TRAIN MODEL (BOTH XGBoost AND Logistic Regression)
     # ========================================================
 
     print("\n" + "-" * 70)
-    print("[MODEL TRAINING]")
+    print("[MODEL TRAINING] - Testing Both Models")
     print("-" * 70)
 
     try:
@@ -411,14 +432,39 @@ def main():
     )
 
     print(
+        f"[INFO] Selected Model:"
+        f" {trainer.model_type}"
+    )
+
+    print(
         f"[INFO] Accuracy:"
         f" {accuracy:.2%}"
     )
 
-    print(
-        f"[INFO] Model:"
-        f" {type(trainer.model).__name__}"
-    )
+    # ========================================================
+    # MODEL COMPARISON SUMMARY
+    # ========================================================
+
+    if trainer.model_metrics and "model_comparison" in trainer.model_metrics:
+        comparison = trainer.model_metrics["model_comparison"]
+        
+        print("\n" + "-" * 70)
+        print("[MODEL COMPARISON SUMMARY]")
+        print("-" * 70)
+        
+        print("\nXGBoost Results:")
+        print(f"  Accuracy:  {comparison['xgboost']['accuracy']:.2%}")
+        print(f"  Precision: {comparison['xgboost']['precision']:.2%}")
+        print(f"  Recall:    {comparison['xgboost']['recall']:.2%}")
+        print(f"  F1 Score:  {comparison['xgboost']['f1_score']:.2%}")
+        print(f"  ROC-AUC:   {comparison['xgboost']['roc_auc']:.2%}")
+        
+        print("\nLogistic Regression Results:")
+        print(f"  Accuracy:  {comparison['logistic_regression']['accuracy']:.2%}")
+        print(f"  Precision: {comparison['logistic_regression']['precision']:.2%}")
+        print(f"  Recall:    {comparison['logistic_regression']['recall']:.2%}")
+        print(f"  F1 Score:  {comparison['logistic_regression']['f1_score']:.2%}")
+        print(f"  ROC-AUC:   {comparison['logistic_regression']['roc_auc']:.2%}")
 
     # ========================================================
     # IMPORTANT INFORMATION
@@ -448,6 +494,27 @@ def main():
             "  None"
         )
 
+    # ========================================================
+    # DISPLAY FEATURE IMPORTANCE
+    # ========================================================
+
+    if trainer.model_metrics and "feature_importance" in trainer.model_metrics:
+
+        print("\n" + "-" * 70)
+        print("[FEATURE IMPORTANCE]")
+        print("-" * 70)
+
+        feature_importance = trainer.model_metrics["feature_importance"]
+
+        for feature, importance in feature_importance.items():
+            print(
+                f"  {feature:<30} : {importance:.4f}"
+            )
+
+    print("\n" + "=" * 70)
+    print("[INFO] You can now use the model for predictions!")
+    print(f"[INFO] Model location: {args.output}")
+    print(f"[INFO] Selected model type: {trainer.model_type}")
     print("=" * 70)
 
 

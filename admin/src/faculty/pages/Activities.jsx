@@ -95,7 +95,6 @@ const Activities = () => {
           const submittedIds = [];
           
           data.data.activities.forEach(activity => {
-            // Get student ID - handle both populated and unpopulated
             let studentId;
             if (typeof activity.studentId === 'object' && activity.studentId._id) {
               studentId = activity.studentId._id.toString();
@@ -108,14 +107,21 @@ const Activities = () => {
             
             console.log(`📊 Processing activity for student: ${studentId}`);
             
+            // FULL 11 FEATURES
             existingStats[studentId] = {
+              age: activity.age || 20,
               totalClasses: activity.totalClasses || 20,
               attendedClasses: activity.attendedClasses || 0,
-              engagement: activity.engagement || 'Medium',
               attendance: activity.attendancePercentage || 0,
               gpa: activity.gpa || 0,
+              failedSubjects: activity.failedSubjects || 0,
               backlogs: activity.backlogs || 0,
               assignmentCompletion: activity.assignmentCompletion || 0,
+              internalAssessmentMarks: activity.internalAssessmentMarks || 0,
+              examScore: activity.examScore || 0,
+              lmsActivityScore: activity.lmsActivityScore || 0,
+              feePending: activity.feePending || 0,
+              counselingSessions: activity.counselingSessions || 0,
               status: activity.status || 'Submitted',
               activityId: activity._id,
               submissionDate: activity.submissionDate,
@@ -128,7 +134,6 @@ const Activities = () => {
           setStudentStats(existingStats);
           setSubmittedStudents(submittedIds);
           console.log(`✅ Loaded existing activities for ${submittedIds.length} students`);
-          console.log('📊 Submitted student IDs:', submittedIds);
         } else {
           console.log('ℹ️ No existing activities found in database');
         }
@@ -169,24 +174,29 @@ const Activities = () => {
         setStudents(studentList);
         setFilteredStudents(studentList);
         
-        // Initialize student stats with default values
+        // Initialize student stats with ALL 11 features
         const initialStats = {};
         studentList.forEach(student => {
           const id = student._id || student.id;
           initialStats[id] = {
+            age: 20,
             totalClasses: 20,
             attendedClasses: 0,
-            engagement: 'Medium',
             attendance: 0,
             gpa: 0,
+            failedSubjects: 0,
             backlogs: 0,
             assignmentCompletion: 0,
+            internalAssessmentMarks: 0,
+            examScore: 0,
+            lmsActivityScore: 0,
+            feePending: 0,
+            counselingSessions: 0,
             status: 'Draft'
           };
         });
         setStudentStats(initialStats);
         
-        // After setting students, fetch existing activities
         await fetchExistingActivities();
         
       } else {
@@ -218,13 +228,19 @@ const Activities = () => {
     sampleStudents.forEach(student => {
       const id = student._id;
       initialStats[id] = {
+        age: 20,
         totalClasses: 20,
         attendedClasses: 0,
-        engagement: 'Medium',
         attendance: 0,
         gpa: 0,
+        failedSubjects: 0,
         backlogs: 0,
         assignmentCompletion: 0,
+        internalAssessmentMarks: 0,
+        examScore: 0,
+        lmsActivityScore: 0,
+        feePending: 0,
+        counselingSessions: 0,
         status: 'Draft'
       };
     });
@@ -254,7 +270,7 @@ const Activities = () => {
         [studentId]: {
           ...prev[studentId],
           [field]: value,
-          status: 'Draft' // Reset status when editing
+          status: 'Draft'
         }
       };
       
@@ -275,7 +291,6 @@ const Activities = () => {
     setIsSubmittingAll(true);
     
     try {
-      // Validate all students data
       const errors = [];
       const activitiesData = [];
       
@@ -288,7 +303,10 @@ const Activities = () => {
           return;
         }
 
-        // Validation
+        // Validate all 11 features
+        if (stats.age < 17 || stats.age > 30) {
+          errors.push(`${student.name}: Age must be between 17-30`);
+        }
         if (stats.totalClasses < 1) {
           errors.push(`${student.name}: Total classes must be at least 1`);
         }
@@ -298,23 +316,46 @@ const Activities = () => {
         if (stats.gpa < 0 || stats.gpa > 10) {
           errors.push(`${student.name}: GPA must be between 0 and 10`);
         }
+        if (stats.failedSubjects < 0) {
+          errors.push(`${student.name}: Failed subjects cannot be negative`);
+        }
         if (stats.backlogs < 0) {
           errors.push(`${student.name}: Backlogs cannot be negative`);
         }
         if (stats.assignmentCompletion < 0 || stats.assignmentCompletion > 100) {
           errors.push(`${student.name}: Assignment completion must be between 0 and 100`);
         }
+        if (stats.internalAssessmentMarks < 0 || stats.internalAssessmentMarks > 100) {
+          errors.push(`${student.name}: Internal assessment marks must be between 0 and 100`);
+        }
+        if (stats.examScore < 0 || stats.examScore > 100) {
+          errors.push(`${student.name}: Exam score must be between 0 and 100`);
+        }
+        if (stats.lmsActivityScore < 0 || stats.lmsActivityScore > 100) {
+          errors.push(`${student.name}: LMS activity score must be between 0 and 100`);
+        }
+        if (stats.counselingSessions < 0) {
+          errors.push(`${student.name}: Counseling sessions cannot be negative`);
+        }
 
+        // FULL 11 FEATURES PAYLOAD
         activitiesData.push({
           studentId: id,
           studentName: student.name,
           studentUsn: student.usn,
+          age: stats.age,
           totalClasses: stats.totalClasses,
           attendedClasses: stats.attendedClasses,
-          engagement: stats.engagement,
+          attendancePercentage: stats.attendance,
           gpa: stats.gpa,
+          failedSubjects: stats.failedSubjects,
           backlogs: stats.backlogs,
-          assignmentCompletion: stats.assignmentCompletion
+          assignmentCompletion: stats.assignmentCompletion,
+          internalAssessmentMarks: stats.internalAssessmentMarks,
+          examScore: stats.examScore,
+          lmsActivityScore: stats.lmsActivityScore,
+          feePending: stats.feePending,
+          counselingSessions: stats.counselingSessions
         });
       });
 
@@ -324,7 +365,7 @@ const Activities = () => {
         return;
       }
 
-      console.log('📤 Submitting all student stats to backend:', activitiesData);
+      console.log('📤 Submitting all student stats:', activitiesData);
 
       const token = localStorage.getItem('token');
       if (!token) {
@@ -345,7 +386,6 @@ const Activities = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Update status of submitted students
         const updatedStats = { ...studentStats };
         filteredStudents.forEach(student => {
           const id = student._id || student.id;
@@ -363,7 +403,6 @@ const Activities = () => {
           console.log('✅ Submission Results:', data.data);
         }
         
-        // Refresh data from database
         setTimeout(async () => {
           await fetchExistingActivities();
         }, 1000);
@@ -392,13 +431,19 @@ const Activities = () => {
       filteredStudents.forEach(student => {
         const id = student._id || student.id;
         resetStats[id] = {
+          age: 20,
           totalClasses: 20,
           attendedClasses: 0,
-          engagement: 'Medium',
           attendance: 0,
           gpa: 0,
+          failedSubjects: 0,
           backlogs: 0,
           assignmentCompletion: 0,
+          internalAssessmentMarks: 0,
+          examScore: 0,
+          lmsActivityScore: 0,
+          feePending: 0,
+          counselingSessions: 0,
           status: 'Draft'
         };
       });
@@ -428,7 +473,6 @@ const Activities = () => {
         const data = await response.json();
         console.log('📊 Student Trend Data:', data);
         toast.info(`Viewing history for ${students.find(s => (s._id || s.id) === studentId)?.name}`, toastConfig);
-        // You can display this in a modal or expanded view
       } else {
         toast.error('Failed to fetch student history', toastConfig);
       }
@@ -445,7 +489,6 @@ const Activities = () => {
     toast.success('Data refreshed successfully!', toastConfig);
   };
 
-  // Dynamic courses, semesters, branches from actual data
   const getUniqueValues = (key) => {
     const values = students.map(s => s[key]).filter(Boolean);
     return [...new Set(values)];
@@ -489,9 +532,6 @@ const Activities = () => {
 
   const handleFilterStudents = () => {
     console.log('🔍 Filtering students...');
-    console.log('📋 Form Data:', formData);
-    console.log('📋 All Students:', students.length);
-    
     setLoading(true);
 
     const currentStudents = students.length > 0 ? students : [];
@@ -528,7 +568,6 @@ const Activities = () => {
     setEditingStudentId(null);
   };
 
-  // Calculate attendance percentage
   const calculateAttendance = (studentId) => {
     const stats = studentStats[studentId];
     if (!stats) return 0;
@@ -536,12 +575,10 @@ const Activities = () => {
     return Math.round((stats.attendedClasses / stats.totalClasses) * 100);
   };
 
-  // Check if student is submitted
   const isStudentSubmitted = (studentId) => {
     return submittedStudents.includes(studentId) || studentStats[studentId]?.status === 'Submitted';
   };
 
-  // Stats for cards
   const totalStudents = filteredStudents.length;
   const totalStats = {
     total: totalStudents,
@@ -569,7 +606,6 @@ const Activities = () => {
 
   return (
     <div>
-      {/* Toast Container */}
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -595,7 +631,7 @@ const Activities = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-[#080C68]">Student Activities</h1>
           <p className="text-sm text-gray-500 mt-0.5 sm:mt-1">
-            Track student engagement and performance
+            Track student engagement and performance (11 Features)
             {submittedStudents.length > 0 && (
               <span className="ml-2 text-green-600 font-semibold">
                 ({submittedStudents.length} submitted)
@@ -607,7 +643,6 @@ const Activities = () => {
           <button
             onClick={handleRefreshData}
             className="flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-semibold transition shadow-sm text-sm sm:text-base"
-            title="Refresh data from database"
           >
             <RefreshCw size={18} className={isLoadingData ? 'animate-spin' : ''} />
             Refresh
@@ -739,22 +774,28 @@ const Activities = () => {
         </div>
       )}
 
-      {/* Student Table */}
+      {/* Student Table with All 11 Features */}
       {!showFilters && filteredStudents.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1300px]">
+            <table className="w-full min-w-[2000px]">
               <thead>
                 <tr className="bg-[#080C68] text-white">
                   <th className="text-left px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold sticky left-0 bg-[#080C68] min-w-[100px] sm:min-w-[120px] z-10">Student</th>
                   <th className="text-left px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold sticky left-[100px] sm:left-[120px] bg-[#080C68] min-w-[70px] sm:min-w-[90px] z-10">USN</th>
-                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">Total</th>
+                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[70px]">Age</th>
+                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">Total Classes</th>
                   <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">Attended</th>
-                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">%</th>
-                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[100px]">Engagement</th>
+                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">Attendance %</th>
                   <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">GPA</th>
+                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[90px]">Failed Subjects</th>
                   <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">Backlogs</th>
                   <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[100px]">Assignment %</th>
+                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[110px]">Internal Marks</th>
+                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[90px]">Exam Score</th>
+                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[100px]">LMS Activity</th>
+                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">Fee Pending</th>
+                  <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[100px]">Counseling</th>
                   <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">Status</th>
                   <th className="text-center px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-xs font-semibold min-w-[80px]">Action</th>
                 </tr>
@@ -763,12 +804,19 @@ const Activities = () => {
                 {filteredStudents.map((student) => {
                   const id = student._id || student.id;
                   const stats = studentStats[id] || { 
+                    age: 20,
                     totalClasses: 20, 
                     attendedClasses: 0, 
-                    engagement: 'Medium', 
+                    attendance: 0,
                     gpa: 0, 
+                    failedSubjects: 0,
                     backlogs: 0, 
                     assignmentCompletion: 0,
+                    internalAssessmentMarks: 0,
+                    examScore: 0,
+                    lmsActivityScore: 0,
+                    feePending: 0,
+                    counselingSessions: 0,
                     status: 'Draft'
                   };
                   const attendance = calculateAttendance(id);
@@ -781,12 +829,6 @@ const Activities = () => {
                     return 'text-red-600';
                   };
 
-                  const getEngagementColor = (eng) => {
-                    if (eng === 'High') return 'text-green-600 bg-green-50';
-                    if (eng === 'Medium') return 'text-yellow-600 bg-yellow-50';
-                    return 'text-red-600 bg-red-50';
-                  };
-
                   return (
                     <tr key={id} className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${isSubmitted ? 'bg-green-50' : ''}`}>
                       <td className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-medium text-[#080C68] sticky left-0 bg-white z-10 truncate max-w-[80px] sm:max-w-none">
@@ -795,6 +837,22 @@ const Activities = () => {
                       <td className="px-2 sm:px-4 py-2 sm:py-3 text-[10px] sm:text-sm text-gray-600 sticky left-[100px] sm:left-[120px] bg-white z-10">
                         {student.usn}
                       </td>
+                      {/* Age */}
+                      <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="17"
+                            max="30"
+                            value={stats.age}
+                            onChange={(e) => handleStatChange(id, 'age', parseInt(e.target.value) || 0)}
+                            className="w-14 sm:w-16 px-1 sm:px-2 py-1 border border-gray-300 rounded text-center text-xs sm:text-sm focus:outline-none focus:border-[#00A9E0]"
+                          />
+                        ) : (
+                          <span className="text-xs sm:text-sm text-gray-600">{stats.age}</span>
+                        )}
+                      </td>
+                      {/* Total Classes */}
                       <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
                         {isEditing ? (
                           <input
@@ -808,6 +866,7 @@ const Activities = () => {
                           <span className="text-xs sm:text-sm text-gray-600">{stats.totalClasses}</span>
                         )}
                       </td>
+                      {/* Attended */}
                       <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
                         {isEditing ? (
                           <input
@@ -822,26 +881,11 @@ const Activities = () => {
                           <span className="text-xs sm:text-sm text-gray-600">{stats.attendedClasses}</span>
                         )}
                       </td>
+                      {/* Attendance % */}
                       <td className={`text-center px-1 sm:px-2 py-1 sm:py-2 text-xs sm:text-sm font-bold ${getAttendanceColor(attendance)}`}>
                         {attendance}%
                       </td>
-                      <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
-                        {isEditing ? (
-                          <select
-                            value={stats.engagement}
-                            onChange={(e) => handleStatChange(id, 'engagement', e.target.value)}
-                            className="w-24 sm:w-28 px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm focus:outline-none focus:border-[#00A9E0]"
-                          >
-                            <option value="High">High</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Low">Low</option>
-                          </select>
-                        ) : (
-                          <span className={`px-1.5 py-0.5 sm:px-2 sm:py-1 text-[8px] sm:text-xs rounded-full font-semibold ${getEngagementColor(stats.engagement)}`}>
-                            {stats.engagement}
-                          </span>
-                        )}
-                      </td>
+                      {/* GPA */}
                       <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
                         {isEditing ? (
                           <input
@@ -857,6 +901,21 @@ const Activities = () => {
                           <span className="text-xs sm:text-sm font-medium text-[#080C68]">{stats.gpa}</span>
                         )}
                       </td>
+                      {/* Failed Subjects */}
+                      <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="0"
+                            value={stats.failedSubjects}
+                            onChange={(e) => handleStatChange(id, 'failedSubjects', parseInt(e.target.value) || 0)}
+                            className="w-14 sm:w-16 px-1 sm:px-2 py-1 border border-gray-300 rounded text-center text-xs sm:text-sm focus:outline-none focus:border-[#00A9E0]"
+                          />
+                        ) : (
+                          <span className="text-xs sm:text-sm text-gray-600">{stats.failedSubjects}</span>
+                        )}
+                      </td>
+                      {/* Backlogs */}
                       <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
                         {isEditing ? (
                           <input
@@ -870,6 +929,7 @@ const Activities = () => {
                           <span className="text-xs sm:text-sm text-gray-600">{stats.backlogs}</span>
                         )}
                       </td>
+                      {/* Assignment % */}
                       <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
                         {isEditing ? (
                           <input
@@ -884,6 +944,87 @@ const Activities = () => {
                           <span className="text-xs sm:text-sm text-gray-600">{stats.assignmentCompletion}%</span>
                         )}
                       </td>
+                      {/* Internal Assessment Marks */}
+                      <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={stats.internalAssessmentMarks}
+                            onChange={(e) => handleStatChange(id, 'internalAssessmentMarks', parseInt(e.target.value) || 0)}
+                            className="w-14 sm:w-16 px-1 sm:px-2 py-1 border border-gray-300 rounded text-center text-xs sm:text-sm focus:outline-none focus:border-[#00A9E0]"
+                          />
+                        ) : (
+                          <span className="text-xs sm:text-sm text-gray-600">{stats.internalAssessmentMarks}</span>
+                        )}
+                      </td>
+                      {/* Exam Score */}
+                      <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={stats.examScore}
+                            onChange={(e) => handleStatChange(id, 'examScore', parseInt(e.target.value) || 0)}
+                            className="w-14 sm:w-16 px-1 sm:px-2 py-1 border border-gray-300 rounded text-center text-xs sm:text-sm focus:outline-none focus:border-[#00A9E0]"
+                          />
+                        ) : (
+                          <span className="text-xs sm:text-sm text-gray-600">{stats.examScore}</span>
+                        )}
+                      </td>
+                      {/* LMS Activity Score */}
+                      <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            value={stats.lmsActivityScore}
+                            onChange={(e) => handleStatChange(id, 'lmsActivityScore', parseInt(e.target.value) || 0)}
+                            className="w-14 sm:w-16 px-1 sm:px-2 py-1 border border-gray-300 rounded text-center text-xs sm:text-sm focus:outline-none focus:border-[#00A9E0]"
+                          />
+                        ) : (
+                          <span className="text-xs sm:text-sm text-gray-600">{stats.lmsActivityScore}</span>
+                        )}
+                      </td>
+                      {/* Fee Pending */}
+                      <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
+                        {isEditing ? (
+                          <select
+                            value={stats.feePending}
+                            onChange={(e) => handleStatChange(id, 'feePending', parseInt(e.target.value))}
+                            className="w-16 sm:w-20 px-1 sm:px-2 py-1 border border-gray-300 rounded text-xs sm:text-sm focus:outline-none focus:border-[#00A9E0]"
+                          >
+                            <option value="0">No</option>
+                            <option value="1">Yes</option>
+                          </select>
+                        ) : (
+                          <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
+                            stats.feePending === 1 
+                              ? 'bg-red-100 text-red-700' 
+                              : 'bg-green-100 text-green-700'
+                          }`}>
+                            {stats.feePending === 1 ? 'Yes' : 'No'}
+                          </span>
+                        )}
+                      </td>
+                      {/* Counseling Sessions */}
+                      <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            min="0"
+                            value={stats.counselingSessions}
+                            onChange={(e) => handleStatChange(id, 'counselingSessions', parseInt(e.target.value) || 0)}
+                            className="w-14 sm:w-16 px-1 sm:px-2 py-1 border border-gray-300 rounded text-center text-xs sm:text-sm focus:outline-none focus:border-[#00A9E0]"
+                          />
+                        ) : (
+                          <span className="text-xs sm:text-sm text-gray-600">{stats.counselingSessions}</span>
+                        )}
+                      </td>
+                      {/* Status */}
                       <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
                         <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
                           isSubmitted 
@@ -893,6 +1034,7 @@ const Activities = () => {
                           {isSubmitted ? '✓ Submitted' : 'Draft'}
                         </span>
                       </td>
+                      {/* Actions */}
                       <td className="text-center px-1 sm:px-2 py-1 sm:py-2">
                         {isEditing ? (
                           <div className="flex items-center justify-center gap-1">
@@ -905,7 +1047,6 @@ const Activities = () => {
                             </button>
                             <button
                               onClick={() => {
-                                // Save individual student changes
                                 const updatedStats = { ...studentStats };
                                 updatedStats[id].status = 'Draft';
                                 setStudentStats(updatedStats);
@@ -935,7 +1076,7 @@ const Activities = () => {
             </table>
           </div>
 
-          {/* Final Submit Button Below the Form */}
+          {/* Submit Button */}
           <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="text-sm text-gray-600">

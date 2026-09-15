@@ -75,6 +75,19 @@ def preprocess_data(df):
 
     are returned as potential model features.
 
+    For your dataset, this will automatically use these 11 features:
+        1. age
+        2. attendance_percentage
+        3. current_gpa
+        4. failed_subjects
+        5. backlogs
+        6. assignment_completion_percentage
+        7. internal_assessment_marks
+        8. exam_score
+        9. lms_activity_score
+        10. fee_pending
+        11. counseling_sessions
+
     Detailed encoding/imputation should be handled by
     ModelTrainer so the exact same preprocessing can be
     saved and reused during prediction.
@@ -123,6 +136,26 @@ def preprocess_data(df):
         f"[INFO] Features: {list(X.columns)}"
     )
 
+    # Display the 11 features explicitly if they match
+    expected_features = [
+        "age",
+        "attendance_percentage",
+        "current_gpa",
+        "failed_subjects",
+        "backlogs",
+        "assignment_completion_percentage",
+        "internal_assessment_marks",
+        "exam_score",
+        "lms_activity_score",
+        "fee_pending",
+        "counseling_sessions"
+    ]
+
+    if set(X.columns) == set(expected_features):
+        print("\n[INFO] Using all 11 features for training:")
+        for i, feature in enumerate(expected_features, 1):
+            print(f"    {i:>2}. {feature}")
+
     return X, y
 
 
@@ -153,4 +186,28 @@ def get_feature_names(df=None):
         column
         for column in df.columns
         if column not in excluded_columns
+    ]
+
+
+# ============================================================
+# GET STANDARD 11 FEATURES (for reference)
+# ============================================================
+
+def get_standard_features():
+    """
+    Returns the standard list of 11 features for student dropout prediction.
+    This function is provided for reference and validation purposes.
+    """
+    return [
+        "age",
+        "attendance_percentage",
+        "current_gpa",
+        "failed_subjects",
+        "backlogs",
+        "assignment_completion_percentage",
+        "internal_assessment_marks",
+        "exam_score",
+        "lms_activity_score",
+        "fee_pending",
+        "counseling_sessions"
     ]

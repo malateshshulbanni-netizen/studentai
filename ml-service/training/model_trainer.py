@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import (
     accuracy_score,
     precision_score,
@@ -15,7 +15,7 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix
 )
-
+from sklearn.linear_model import LogisticRegression
 from xgboost import XGBClassifier
 
 
@@ -24,7 +24,9 @@ class ModelTrainer:
     def __init__(self):
 
         self.model = None
-
+        self.model_type = None
+        self.scaler = None
+        
         # Encoder for each categorical feature
         self.encoders = {}
 
@@ -340,7 +342,7 @@ class ModelTrainer:
         return feature_df, y
 
     # ========================================================
-    # TRAIN
+    # TRAIN WITH BOTH MODELS AND SELECT BEST
     # ========================================================
 
     def train(self, X, y):
@@ -463,10 +465,14 @@ class ModelTrainer:
         )
 
         # ----------------------------------------------------
-        # XGBOOST
+        # TRAIN XGBOOST MODEL
         # ----------------------------------------------------
 
-        self.model = XGBClassifier(
+        print("\n" + "=" * 70)
+        print("[TRAINING] XGBoost Classifier")
+        print("=" * 70)
+
+        xgb_model = XGBClassifier(
 
             n_estimators=200,
 
@@ -486,20 +492,14 @@ class ModelTrainer:
 
             scale_pos_weight=scale_pos_weight,
 
-            # IMPORTANT:
-            # We are NOT using categorical mode.
             enable_categorical=False
         )
-
-        # ----------------------------------------------------
-        # TRAIN
-        # ----------------------------------------------------
 
         print(
             "\n[INFO] Fitting XGBoost..."
         )
 
-        self.model.fit(
+        xgb_model.fit(
             X_train,
             y_train
         )
@@ -508,74 +508,139 @@ class ModelTrainer:
             "[OK] XGBoost training completed."
         )
 
-        # ----------------------------------------------------
-        # PREDICTIONS
-        # ----------------------------------------------------
+        # XGBoost predictions
+        y_pred_xgb = xgb_model.predict(X_test)
+        y_pred_proba_xgb = xgb_model.predict_proba(X_test)[:, 1]
 
-        y_pred = self.model.predict(
-            X_test
-        )
-
-        y_pred_proba = (
-            self.model
-            .predict_proba(
-                X_test
-            )[:, 1]
-        )
-
-        # ----------------------------------------------------
-        # METRICS
-        # ----------------------------------------------------
-
-        accuracy = accuracy_score(
-            y_test,
-            y_pred
-        )
-
-        precision = precision_score(
-            y_test,
-            y_pred,
-            zero_division=0
-        )
-
-        recall = recall_score(
-            y_test,
-            y_pred,
-            zero_division=0
-        )
-
-        f1 = f1_score(
-            y_test,
-            y_pred,
-            zero_division=0
-        )
+        # XGBoost metrics
+        accuracy_xgb = accuracy_score(y_test, y_pred_xgb)
+        precision_xgb = precision_score(y_test, y_pred_xgb, zero_division=0)
+        recall_xgb = recall_score(y_test, y_pred_xgb, zero_division=0)
+        f1_xgb = f1_score(y_test, y_pred_xgb, zero_division=0)
 
         try:
-
-            roc_auc = roc_auc_score(
-                y_test,
-                y_pred_proba
-            )
-
+            roc_auc_xgb = roc_auc_score(y_test, y_pred_proba_xgb)
         except Exception:
+            roc_auc_xgb = 0.0
 
-            roc_auc = 0.0
+        print("\n[RESULTS] XGBoost:")
+        print(f"  Accuracy:  {accuracy_xgb:.2%}")
+        print(f"  Precision: {precision_xgb:.2%}")
+        print(f"  Recall:    {recall_xgb:.2%}")
+        print(f"  F1 Score:  {f1_xgb:.2%}")
+        print(f"  ROC-AUC:   {roc_auc_xgb:.2%}")
+
+        # ----------------------------------------------------
+        # TRAIN LOGISTIC REGRESSION MODEL
+        # ----------------------------------------------------
+
+        print("\n" + "=" * 70)
+        print("[TRAINING] Logistic Regression")
+        print("=" * 70)
+
+        # Scale features for Logistic Regression
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+
+        # Adjust class weight for imbalance
+        class_weight = {
+            0: 1.0,
+            1: scale_pos_weight
+        }
+
+        lr_model = LogisticRegression(
+            class_weight=class_weight,
+            max_iter=1000,
+            random_state=42,
+            C=1.0,
+            solver='lbfgs'
+        )
+
+        print(
+            "\n[INFO] Fitting Logistic Regression..."
+        )
+
+        lr_model.fit(
+            X_train_scaled,
+            y_train
+        )
+
+        print(
+            "[OK] Logistic Regression training completed."
+        )
+
+        # Logistic Regression predictions
+        y_pred_lr = lr_model.predict(X_test_scaled)
+        y_pred_proba_lr = lr_model.predict_proba(X_test_scaled)[:, 1]
+
+        # Logistic Regression metrics
+        accuracy_lr = accuracy_score(y_test, y_pred_lr)
+        precision_lr = precision_score(y_test, y_pred_lr, zero_division=0)
+        recall_lr = recall_score(y_test, y_pred_lr, zero_division=0)
+        f1_lr = f1_score(y_test, y_pred_lr, zero_division=0)
+
+        try:
+            roc_auc_lr = roc_auc_score(y_test, y_pred_proba_lr)
+        except Exception:
+            roc_auc_lr = 0.0
+
+        print("\n[RESULTS] Logistic Regression:")
+        print(f"  Accuracy:  {accuracy_lr:.2%}")
+        print(f"  Precision: {precision_lr:.2%}")
+        print(f"  Recall:    {recall_lr:.2%}")
+        print(f"  F1 Score:  {f1_lr:.2%}")
+        print(f"  ROC-AUC:   {roc_auc_lr:.2%}")
+
+        # ----------------------------------------------------
+        # SELECT BEST MODEL
+        # ----------------------------------------------------
+
+        print("\n" + "=" * 70)
+        print("[MODEL SELECTION]")
+        print("=" * 70)
+
+        # Compare models by accuracy
+        if accuracy_xgb >= accuracy_lr:
+            self.model = xgb_model
+            self.model_type = "XGBClassifier"
+            self.scaler = None  # XGBoost doesn't need scaling
+            accuracy = accuracy_xgb
+            precision = precision_xgb
+            recall = recall_xgb
+            f1 = f1_xgb
+            roc_auc = roc_auc_xgb
+            y_pred = y_pred_xgb
+            y_pred_proba = y_pred_proba_xgb
+            cm = confusion_matrix(y_test, y_pred)
+            
+            print(f"[SELECTED] XGBoost Classifier")
+            print(f"  Accuracy:  {accuracy_xgb:.2%}")
+            print(f"  Reason: XGBoost accuracy ({accuracy_xgb:.2%}) >= Logistic Regression ({accuracy_lr:.2%})")
+        else:
+            self.model = lr_model
+            self.model_type = "LogisticRegression"
+            self.scaler = scaler  # Save scaler for prediction
+            accuracy = accuracy_lr
+            precision = precision_lr
+            recall = recall_lr
+            f1 = f1_lr
+            roc_auc = roc_auc_lr
+            y_pred = y_pred_lr
+            y_pred_proba = y_pred_proba_lr
+            cm = confusion_matrix(y_test, y_pred)
+            
+            print(f"[SELECTED] Logistic Regression")
+            print(f"  Accuracy:  {accuracy_lr:.2%}")
+            print(f"  Reason: Logistic Regression accuracy ({accuracy_lr:.2%}) > XGBoost ({accuracy_xgb:.2%})")
 
         # ----------------------------------------------------
         # CONFUSION MATRIX
         # ----------------------------------------------------
 
-        cm = confusion_matrix(
-            y_test,
-            y_pred
-        )
-
         if cm.shape == (2, 2):
-
             tn, fp, fn, tp = cm.ravel()
-
         else:
-
             tn = fp = fn = tp = 0
 
         # ----------------------------------------------------
@@ -589,7 +654,7 @@ class ModelTrainer:
         )
 
         print(
-            "\n[RESULTS]"
+            "\n[FINAL RESULTS]"
         )
 
         print(
@@ -638,6 +703,26 @@ class ModelTrainer:
             importances = (
                 self.model
                 .feature_importances_
+            )
+
+            feature_importance = dict(
+                sorted(
+                    zip(
+                        self.feature_names,
+                        importances
+                    ),
+                    key=lambda x: x[1],
+                    reverse=True
+                )
+            )
+
+        elif hasattr(
+            self.model,
+            "coef_"
+        ):
+
+            importances = np.abs(
+                self.model.coef_[0]
             )
 
             feature_importance = dict(
@@ -703,7 +788,7 @@ class ModelTrainer:
 
             "dropout_rate": dropout_rate,
 
-            "model_type": "XGBClassifier",
+            "model_type": self.model_type,
 
             "categorical_features": list(
                 self.encoders.keys()
@@ -731,11 +816,33 @@ class ModelTrainer:
             "feature_importance": {
                 k: float(v)
                 for k, v in feature_importance.items()
+            },
+
+            # Store both model performances for comparison
+            "model_comparison": {
+                "xgboost": {
+                    "accuracy": float(accuracy_xgb),
+                    "precision": float(precision_xgb),
+                    "recall": float(recall_xgb),
+                    "f1_score": float(f1_xgb),
+                    "roc_auc": float(roc_auc_xgb)
+                },
+                "logistic_regression": {
+                    "accuracy": float(accuracy_lr),
+                    "precision": float(precision_lr),
+                    "recall": float(recall_lr),
+                    "f1_score": float(f1_lr),
+                    "roc_auc": float(roc_auc_lr)
+                }
             }
         }
 
         print(
             "\n[SUCCESS] Model trained successfully!"
+        )
+
+        print(
+            f"\n[INFO] Selected model: {self.model_type}"
         )
 
         return (
@@ -769,6 +876,10 @@ class ModelTrainer:
 
             "model": self.model,
 
+            "model_type": self.model_type,
+
+            "scaler": self.scaler,
+
             "label_encoder": self.label_encoder,
 
             "encoders": self.encoders,
@@ -786,6 +897,10 @@ class ModelTrainer:
         print(
             f"[OK] Model saved to "
             f"{filepath}"
+        )
+
+        print(
+            f"[OK] Model type: {self.model_type}"
         )
 
         # ----------------------------------------------------
@@ -837,6 +952,16 @@ class ModelTrainer:
             "model"
         )
 
+        self.model_type = data.get(
+            "model_type",
+            "XGBClassifier"
+        )
+
+        self.scaler = data.get(
+            "scaler",
+            None
+        )
+
         self.label_encoder = data.get(
             "label_encoder"
         )
@@ -862,6 +987,10 @@ class ModelTrainer:
         )
 
         print(
+            f"[OK] Model type: {self.model_type}"
+        )
+
+        print(
             f"[OK] Training features: "
             f"{self.feature_names}"
         )
@@ -870,6 +999,11 @@ class ModelTrainer:
             f"[OK] Encoders: "
             f"{list(self.encoders.keys())}"
         )
+
+        if self.scaler is not None:
+            print(
+                f"[OK] Scaler loaded: {type(self.scaler).__name__}"
+            )
 
         return self.model
 
@@ -1074,7 +1208,7 @@ class ModelTrainer:
         )
 
         # ----------------------------------------------------
-        # VALIDATE DTYPES BEFORE XGBOOST
+        # VALIDATE DTYPES BEFORE PREDICTION
         # ----------------------------------------------------
 
         invalid_columns = [
@@ -1091,6 +1225,20 @@ class ModelTrainer:
                 "Prediction dataframe contains "
                 f"non-numeric columns: {invalid_columns}"
             )
+
+        # ----------------------------------------------------
+        # SCALE IF USING LOGISTIC REGRESSION
+        # ----------------------------------------------------
+
+        if self.model_type == "LogisticRegression" and self.scaler is not None:
+
+            final_df_scaled = pd.DataFrame(
+                self.scaler.transform(final_df),
+                columns=final_df.columns,
+                index=final_df.index
+            )
+            
+            final_df = final_df_scaled
 
         # ----------------------------------------------------
         # DEBUG

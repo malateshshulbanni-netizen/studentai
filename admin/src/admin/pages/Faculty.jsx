@@ -17,7 +17,9 @@ import {
   Lock,
   Calendar,
   Award,
-  Briefcase
+  Briefcase,
+  Upload,
+  CheckCircle
 } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -29,11 +31,16 @@ const Faculty = () => {
   const [showModal, setShowModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFaculty, setSelectedFaculty] = useState(null);
   const [editingFaculty, setEditingFaculty] = useState(null);
   const [institution, setInstitution] = useState(null);
   const [nextEmployeeId, setNextEmployeeId] = useState(1);
+  const [bulkFile, setBulkFile] = useState(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkPreview, setBulkPreview] = useState([]);
+  const [bulkErrors, setBulkErrors] = useState([]);
 
   const [formData, setFormData] = useState({
     employeeId: '',
@@ -437,6 +444,332 @@ const Faculty = () => {
     setErrors({});
   };
 
+  // ============================================
+  // BULK UPLOAD CSV FUNCTIONS
+  // ============================================
+
+  // Handle CSV file selection
+  const handleBulkFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      toast.error('Please upload a CSV file', toastConfig);
+      return;
+    }
+
+    setBulkFile(file);
+    setBulkErrors([]);
+
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+      
+      if (lines.length < 2) {
+        toast.error('CSV file is empty or has no data rows', toastConfig);
+        setBulkPreview([]);
+        return;
+      }
+
+      // Parse headers
+      const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
+      
+      console.log('📄 CSV Headers:', headers);
+
+      // Check required columns (based on your form fields)
+      const requiredColumns = [
+        'fullname', 'department', 'designation', 'qualification', 
+        'specialization', 'mobile', 'email', 'dateofjoining', 
+        'facultytype', 'username', 'password'
+      ];
+      
+      // Flexible column matching
+      const missingColumns = requiredColumns.filter(col => {
+        const variants = [
+          col,
+          col.replace(/name$/, '_name'),
+          col.replace(/type$/, '_type'),
+          col.replace(/dateofjoining/, 'date_of_joining'),
+          col.replace(/dateofjoining/, 'joining_date'),
+        ];
+        return !variants.some(v => headers.includes(v));
+      });
+      
+      if (missingColumns.length > 0) {
+        toast.error(`Missing columns: ${missingColumns.join(', ')}`, toastConfig);
+        setBulkPreview([]);
+        return;
+      }
+
+      // Parse rows
+      const facultyRows = [];
+      const errors = [];
+
+      for (let i = 1; i < lines.length; i++) {
+        // Simple CSV parser (handles quoted values)
+        const values = [];
+        let current = '';
+        let inQuotes = false;
+        
+        for (let char of lines[i]) {
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            values.push(current.trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        values.push(current.trim());
+
+        // Map row to faculty object
+        const row = {};
+        headers.forEach((header, idx) => {
+          row[header] = values[idx] || '';
+        });
+
+        // Normalize keys (handle different naming conventions)
+        const getValue = (keys) => {
+          for (const key of keys) {
+            if (row[key] !== undefined && row[key] !== '') return row[key];
+          }
+          return '';
+        };
+
+        const item = {
+          fullName: getValue(['fullname', 'full_name', 'name']),
+          department: getValue(['department', 'dept']),
+          designation: getValue(['designation', 'position']),
+          qualification: getValue(['qualification', 'degree']),
+          specialization: getValue(['specialization', 'specialisation', 'specialty']),
+          mobile: getValue(['mobile', 'phone', 'mobile_number']),
+          email: getValue(['email', 'email_address']),
+          dateOfJoining: getValue(['dateofjoining', 'date_of_joining', 'joining_date']),
+          facultyType: getValue(['facultytype', 'faculty_type', 'type']),
+          username: getValue(['username', 'user_name', 'user']),
+          password: getValue(['password', 'pass']),
+        };
+
+        // Default password if not provided
+        if (!item.password) {
+          item.password = 'password123';
+        }
+
+        // Validate row
+        const rowErrors = [];
+        if (!item.fullName) rowErrors.push('Full Name is required');
+        if (!item.department) rowErrors.push('Department is required');
+        if (!item.designation) rowErrors.push('Designation is required');
+        if (!item.qualification) rowErrors.push('Qualification is required');
+        if (!item.specialization) rowErrors.push('Specialization is required');
+        if (!item.mobile || !/^\d{10}$/.test(item.mobile)) {
+          rowErrors.push('Valid 10-digit mobile required');
+        }
+        if (!item.email || !/\S+@\S+\.\S+/.test(item.email)) {
+          rowErrors.push('Valid email required');
+        }
+        if (!item.dateOfJoining) rowErrors.push('Date of Joining required');
+        if (!item.facultyType) rowErrors.push('Faculty Type required');
+        if (!item.username) rowErrors.push('Username required');
+        if (!item.password || item.password.length < 6) {
+          rowErrors.push('Password must be at least 6 characters');
+        }
+
+        facultyRows.push({
+          ...item,
+          rowNumber: i + 1,
+          isValid: rowErrors.length === 0,
+          errors: rowErrors
+        });
+
+        if (rowErrors.length > 0) {
+          errors.push({
+            row: i + 1,
+            name: item.fullName || 'Unknown',
+            email: item.email || 'N/A',
+            errors: rowErrors
+          });
+        }
+      }
+
+      setBulkPreview(facultyRows);
+      setBulkErrors(errors);
+
+      if (errors.length > 0) {
+        toast.warning(`Found ${errors.length} rows with errors. Please review before uploading.`, toastConfig);
+      } else {
+        toast.success(`✅ ${facultyRows.length} faculty members ready to upload`, toastConfig);
+      }
+
+    } catch (error) {
+      console.error('❌ CSV parse error:', error);
+      toast.error('Error parsing CSV file: ' + error.message, toastConfig);
+      setBulkPreview([]);
+    }
+  };
+
+  // Handle bulk upload
+  const handleBulkUpload = async () => {
+    if (!bulkPreview || bulkPreview.length === 0) {
+      toast.error('No faculty to upload', toastConfig);
+      return;
+    }
+
+    const validFaculty = bulkPreview.filter(f => f.isValid);
+    if (validFaculty.length === 0) {
+      toast.error('No valid faculty to upload', toastConfig);
+      return;
+    }
+
+    setBulkUploading(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Please login again', toastConfig);
+        setBulkUploading(false);
+        return;
+      }
+
+      const userData = localStorage.getItem('user');
+      const user = userData ? JSON.parse(userData) : null;
+      const institutionId = user?.institutionId || user?._id;
+
+      if (!institutionId) {
+        toast.error('Institution ID not found', toastConfig);
+        setBulkUploading(false);
+        return;
+      }
+
+      // Build payload with auto-generated employee IDs
+      const facultyPayload = validFaculty.map((f, idx) => ({
+        employeeId: String(nextEmployeeId + idx).padStart(2, '0'),
+        fullName: f.fullName,
+        department: f.department,
+        designation: f.designation,
+        qualification: f.qualification,
+        specialization: f.specialization,
+        mobile: f.mobile,
+        email: f.email,
+        dateOfJoining: f.dateOfJoining,
+        facultyType: f.facultyType,
+        username: f.username,
+        password: f.password || 'password123',
+        institutionId: institutionId
+      }));
+
+      console.log('📤 Bulk uploading faculty:', facultyPayload.length);
+
+      // Try bulk endpoint first, fallback to individual
+      let response;
+      let data;
+
+      try {
+        response = await fetch(`${API_BASE_URL}/api/faculty/bulk`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ faculty: facultyPayload })
+        });
+        data = await response.json();
+      } catch (err) {
+        console.log('Bulk endpoint not available, using individual uploads...');
+        response = null;
+      }
+
+      // If bulk endpoint doesn't exist (404), fall back to individual uploads
+      if (!response || response.status === 404) {
+        console.log('📤 Uploading faculty individually...');
+        
+        const results = { successful: [], failed: [] };
+        
+        for (const item of facultyPayload) {
+          try {
+            const res = await fetch(`${API_BASE_URL}/api/faculty`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(item)
+            });
+            const resData = await res.json();
+            
+            if (res.ok) {
+              results.successful.push(resData.data);
+            } else {
+              results.failed.push({
+                name: item.fullName,
+                email: item.email,
+                error: resData.message || 'Failed'
+              });
+            }
+          } catch (err) {
+            results.failed.push({
+              name: item.fullName,
+              email: item.email,
+              error: err.message
+            });
+          }
+        }
+
+        if (results.successful.length > 0) {
+          setFaculty([...results.successful, ...faculty]);
+          setNextEmployeeId(nextEmployeeId + results.successful.length);
+          toast.success(`✅ ${results.successful.length} faculty uploaded successfully!`, toastConfig);
+        }
+        
+        if (results.failed.length > 0) {
+          console.warn('❌ Failed uploads:', results.failed);
+          toast.warning(`⚠️ ${results.failed.length} faculty failed to upload`, toastConfig);
+        }
+
+      } else if (response.ok) {
+        // Bulk endpoint succeeded
+        const uploadedFaculty = data.data?.faculty || data.data || [];
+        setFaculty([...uploadedFaculty, ...faculty]);
+        setNextEmployeeId(nextEmployeeId + uploadedFaculty.length);
+        
+        toast.success(`✅ ${data.message || `${uploadedFaculty.length} faculty uploaded successfully!`}`, toastConfig);
+        
+        if (data.data?.failed && data.data.failed.length > 0) {
+          toast.warning(`⚠️ ${data.data.failed.length} faculty failed`, toastConfig);
+        }
+      } else {
+        toast.error(data.message || 'Bulk upload failed', toastConfig);
+        setBulkUploading(false);
+        return;
+      }
+
+      // Close modal and reset
+      setShowBulkUploadModal(false);
+      setBulkFile(null);
+      setBulkPreview([]);
+      setBulkErrors([]);
+
+    } catch (error) {
+      console.error('❌ Bulk upload error:', error);
+      toast.error('Network error during bulk upload', toastConfig);
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
+  // Open bulk upload modal
+  const openBulkUploadModal = () => {
+    setBulkFile(null);
+    setBulkPreview([]);
+    setBulkErrors([]);
+    setShowBulkUploadModal(true);
+  };
+
+  // ============================================
+  // END BULK UPLOAD FUNCTIONS
+  // ============================================
+
   // Filter faculty
   const filteredFaculty = faculty.filter(f =>
     f.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -520,13 +853,22 @@ const Faculty = () => {
           <h1 className="text-2xl font-bold text-[#080C68]">Faculty</h1>
           <p className="text-gray-500 mt-1">Manage faculty and mentors</p>
         </div>
-        <button 
-          onClick={openAddModal}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#00A9E0] hover:bg-[#008FC2] text-white rounded-lg font-semibold transition shadow-sm"
-        >
-          <Plus size={20} />
-          Add Faculty
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button 
+            onClick={openBulkUploadModal}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition shadow-sm"
+          >
+            <Upload size={20} />
+            Bulk Upload
+          </button>
+          <button 
+            onClick={openAddModal}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[#00A9E0] hover:bg-[#008FC2] text-white rounded-lg font-semibold transition shadow-sm"
+          >
+            <Plus size={20} />
+            Add Faculty
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -624,6 +966,174 @@ const Faculty = () => {
           </div>
         )}
       </div>
+
+      {/* ============================================ */}
+      {/* BULK UPLOAD MODAL */}
+      {/* ============================================ */}
+      {showBulkUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
+              <div>
+                <h2 className="text-2xl font-bold text-[#080C68] flex items-center gap-2">
+                  <Upload size={24} className="text-purple-600" />
+                  Bulk Upload Faculty
+                </h2>
+                <p className="text-sm text-gray-500 mt-1">Upload multiple faculty members at once using a CSV file</p>
+              </div>
+              <button 
+                onClick={() => setShowBulkUploadModal(false)}
+                className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-500 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* File Upload */}
+              <div>
+                <label className="block text-sm font-semibold text-[#080C68] mb-2">
+                  Select CSV File
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-purple-400 transition-colors">
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleBulkFileChange}
+                    className="hidden"
+                    id="bulk-csv-faculty-input"
+                  />
+                  <label htmlFor="bulk-csv-faculty-input" className="cursor-pointer">
+                    <Upload size={40} className="mx-auto text-gray-400 mb-3" />
+                    <p className="text-sm font-medium text-gray-700">
+                      {bulkFile ? bulkFile.name : 'Click to select CSV file'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {bulkFile ? `${(bulkFile.size / 1024).toFixed(2)} KB` : 'Only .csv files are supported'}
+                    </p>
+                  </label>
+                </div>
+              </div>
+
+              {/* Preview */}
+              {bulkPreview.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-[#080C68] flex items-center gap-2">
+                      <CheckCircle size={18} className="text-green-600" />
+                      Preview ({bulkPreview.length} faculty)
+                    </h3>
+                    <div className="flex gap-3 text-sm">
+                      <span className="text-green-600 font-medium">
+                        ✅ {bulkPreview.filter(f => f.isValid).length} valid
+                      </span>
+                      {bulkErrors.length > 0 && (
+                        <span className="text-red-600 font-medium">
+                          ❌ {bulkErrors.length} errors
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-lg overflow-hidden max-h-80 overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-700">#</th>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-700">Name</th>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-700">Department</th>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-700">Designation</th>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-700">Email</th>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-700">Mobile</th>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-700">Type</th>
+                          <th className="text-left px-3 py-2 font-semibold text-gray-700">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkPreview.map((item, idx) => (
+                          <tr 
+                            key={idx} 
+                            className={`border-b border-gray-100 ${
+                              item.isValid ? 'hover:bg-gray-50' : 'bg-red-50'
+                            }`}
+                          >
+                            <td className="px-3 py-2 text-gray-500">{item.rowNumber}</td>
+                            <td className="px-3 py-2 font-medium text-[#080C68]">{item.fullName || '-'}</td>
+                            <td className="px-3 py-2 text-gray-600 text-xs">{item.department || '-'}</td>
+                            <td className="px-3 py-2 text-gray-600 text-xs">{item.designation || '-'}</td>
+                            <td className="px-3 py-2 text-gray-600 text-xs">{item.email || '-'}</td>
+                            <td className="px-3 py-2 text-gray-600">{item.mobile || '-'}</td>
+                            <td className="px-3 py-2 text-gray-600 text-xs">{item.facultyType || '-'}</td>
+                            <td className="px-3 py-2">
+                              {item.isValid ? (
+                                <span className="text-xs text-green-600 font-medium flex items-center gap-1">
+                                  <CheckCircle size={12} />
+                                  Valid
+                                </span>
+                              ) : (
+                                <span className="text-xs text-red-600 font-medium" title={item.errors.join(', ')}>
+                                  ❌ {item.errors[0]}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {bulkErrors.length > 0 && (
+                    <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm font-medium text-red-700 mb-1">
+                        ⚠️ {bulkErrors.length} row(s) have errors and will be skipped:
+                      </p>
+                      <ul className="text-xs text-red-600 space-y-0.5 max-h-32 overflow-y-auto">
+                        {bulkErrors.slice(0, 10).map((err, idx) => (
+                          <li key={idx}>• Row {err.row}: {err.name} ({err.email}) - {err.errors.join(', ')}</li>
+                        ))}
+                        {bulkErrors.length > 10 && (
+                          <li>• ... and {bulkErrors.length - 10} more errors</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkUploadModal(false)}
+                  disabled={bulkUploading}
+                  className="w-full sm:w-auto px-6 py-3 border border-gray-200 rounded-lg text-gray-600 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkUpload}
+                  disabled={bulkUploading || bulkPreview.filter(f => f.isValid).length === 0}
+                  className="w-full sm:w-auto px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+                >
+                  {bulkUploading ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={18} />
+                      Upload {bulkPreview.filter(f => f.isValid).length} Faculty
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Faculty Modal */}
       {showModal && (

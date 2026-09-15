@@ -133,7 +133,7 @@ const MyStudents = () => {
     }
   };
 
-  // Fetch predictions for students - Auto runs on load
+  // Fetch predictions for students - UPDATED FOR 11 FEATURES
   const fetchPredictions = async (studentList) => {
     try {
       const token = localStorage.getItem('token');
@@ -152,29 +152,60 @@ const MyStudents = () => {
             }
           });
 
-          let attendance = 0, gpa = 0, backlogs = 0, assignmentCompletion = 0, engagement = 'Medium';
+          // Default all 11 features
+          let age = 20;
+          let attendance = 0;
+          let gpa = 0;
+          let failedSubjects = 0;
+          let backlogs = 0;
+          let assignmentCompletion = 0;
+          let internalAssessmentMarks = 0;
+          let examScore = 0;
+          let lmsActivityScore = 0;
+          let feePending = 0;
+          let counselingSessions = 0;
+          let engagement = 'Medium';
+          let hasData = false;
           
           if (statsResponse.ok) {
             const statsData = await statsResponse.json();
             if (statsData.data && statsData.data.activities && statsData.data.activities.length > 0) {
               const latest = statsData.data.activities[0];
+              // ✅ ALL 11 FEATURES
+              age = latest.age || 20;
               attendance = latest.attendancePercentage || 0;
               gpa = latest.gpa || 0;
+              failedSubjects = latest.failedSubjects || 0;
               backlogs = latest.backlogs || 0;
               assignmentCompletion = latest.assignmentCompletion || 0;
+              internalAssessmentMarks = latest.internalAssessmentMarks || 0;
+              examScore = latest.examScore || 0;
+              lmsActivityScore = latest.lmsActivityScore || 0;
+              feePending = latest.feePending || 0;
+              counselingSessions = latest.counselingSessions || 0;
               engagement = latest.engagement || 'Medium';
+              hasData = true;
             }
           }
 
           // Only predict if student has data
-          if (attendance > 0 || gpa > 0 || backlogs > 0 || assignmentCompletion > 0) {
+          if (hasData) {
+            // ✅ ALL 11 FEATURES PAYLOAD
             const payload = {
-              attendance: attendance,
-              gpa: gpa,
-              backlogs: backlogs,
-              assignment_completion: assignmentCompletion,
-              engagement: engagement
+              age: parseInt(age) || 20,
+              attendance_percentage: parseFloat(attendance) || 0,
+              current_gpa: parseFloat(gpa) || 0,
+              failed_subjects: parseInt(failedSubjects) || 0,
+              backlogs: parseInt(backlogs) || 0,
+              assignment_completion_percentage: parseFloat(assignmentCompletion) || 0,
+              internal_assessment_marks: parseFloat(internalAssessmentMarks) || 0,
+              exam_score: parseFloat(examScore) || 0,
+              lms_activity_score: parseFloat(lmsActivityScore) || 0,
+              fee_pending: parseInt(feePending) || 0,
+              counseling_sessions: parseInt(counselingSessions) || 0
             };
+
+            console.log(`📤 Predicting for ${student.name}:`, payload);
 
             const predictResponse = await fetch(`${API_BASE_URL}/api/predict`, {
               method: 'POST',
@@ -227,7 +258,7 @@ const MyStudents = () => {
     }
   };
 
-  // Handle Predict Single Student
+  // Handle Predict Single Student - UPDATED FOR 11 FEATURES
   const handlePredictSingle = async (studentId) => {
     setPredictingStudentId(studentId);
     try {
@@ -247,27 +278,64 @@ const MyStudents = () => {
         }
       });
 
-      let attendance = 0, gpa = 0, backlogs = 0, assignmentCompletion = 0, engagement = 'Medium';
+      // Default all 11 features
+      let age = 20;
+      let attendance = 0;
+      let gpa = 0;
+      let failedSubjects = 0;
+      let backlogs = 0;
+      let assignmentCompletion = 0;
+      let internalAssessmentMarks = 0;
+      let examScore = 0;
+      let lmsActivityScore = 0;
+      let feePending = 0;
+      let counselingSessions = 0;
+      let engagement = 'Medium';
+      let hasData = false;
       
       if (statsResponse.ok) {
         const statsData = await statsResponse.json();
         if (statsData.data && statsData.data.activities && statsData.data.activities.length > 0) {
           const latest = statsData.data.activities[0];
+          // ✅ ALL 11 FEATURES
+          age = latest.age || 20;
           attendance = latest.attendancePercentage || 0;
           gpa = latest.gpa || 0;
+          failedSubjects = latest.failedSubjects || 0;
           backlogs = latest.backlogs || 0;
           assignmentCompletion = latest.assignmentCompletion || 0;
+          internalAssessmentMarks = latest.internalAssessmentMarks || 0;
+          examScore = latest.examScore || 0;
+          lmsActivityScore = latest.lmsActivityScore || 0;
+          feePending = latest.feePending || 0;
+          counselingSessions = latest.counselingSessions || 0;
           engagement = latest.engagement || 'Medium';
+          hasData = true;
         }
       }
 
+      if (!hasData) {
+        toast.warning('No academic data found for this student. Please add data first.', toastConfig);
+        setPredictingStudentId(null);
+        return;
+      }
+
+      // ✅ ALL 11 FEATURES PAYLOAD
       const payload = {
-        attendance: attendance,
-        gpa: gpa,
-        backlogs: backlogs,
-        assignment_completion: assignmentCompletion,
-        engagement: engagement
+        age: parseInt(age) || 20,
+        attendance_percentage: parseFloat(attendance) || 0,
+        current_gpa: parseFloat(gpa) || 0,
+        failed_subjects: parseInt(failedSubjects) || 0,
+        backlogs: parseInt(backlogs) || 0,
+        assignment_completion_percentage: parseFloat(assignmentCompletion) || 0,
+        internal_assessment_marks: parseFloat(internalAssessmentMarks) || 0,
+        exam_score: parseFloat(examScore) || 0,
+        lms_activity_score: parseFloat(lmsActivityScore) || 0,
+        fee_pending: parseInt(feePending) || 0,
+        counseling_sessions: parseInt(counselingSessions) || 0
       };
+
+      console.log('📤 Sending prediction payload:', payload);
 
       const response = await fetch(`${API_BASE_URL}/api/predict`, {
         method: 'POST',

@@ -8,7 +8,8 @@ const {
   deleteActivity,
   getSummary,
   getStudentTrend,
-  getActivitiesByInstitution
+  getActivitiesByInstitution,
+  getStudentMLFeatures
 } = require('../controllers/studentActivityController');
 const { 
   authMiddleware, 
@@ -37,6 +38,10 @@ router.post('/bulk', facultyOnly, bulkCreateOrUpdateActivities);
 // Summary and trend - Faculty or Institution Admin
 router.get('/summary', facultyOrInstitutionAdmin, getSummary);
 router.get('/trend/:studentId', facultyOrInstitutionAdmin, getStudentTrend);
+
+// ML Features - Get 11 ML-ready features for a student
+// Faculty or Institution Admin can get any student's ML features
+router.get('/ml-features/:studentId', facultyOrInstitutionAdmin, getStudentMLFeatures);
 
 // Institution specific - Faculty or Institution Admin
 router.get('/institution/:institutionId', facultyOrInstitutionAdmin, getActivitiesByInstitution);

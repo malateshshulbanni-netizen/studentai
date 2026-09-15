@@ -1,44 +1,70 @@
 {
-  "accuracy": 0.88,
-  "precision": 0.8823529411764706,
-  "recall": 0.8823529411764706,
-  "f1_score": 0.8823529411764706,
-  "roc_auc": 0.9580832332933173,
-  "samples": 1000,
-  "training_samples": 800,
-  "testing_samples": 200,
+  "accuracy": 0.885,
+  "precision": 0.22727272727272727,
+  "recall": 0.14705882352941177,
+  "f1_score": 0.17857142857142858,
+  "roc_auc": 0.7141594342655095,
+  "samples": 2000,
+  "training_samples": 1600,
+  "testing_samples": 400,
   "features": [
-    "attendance",
-    "gpa",
+    "age",
+    "attendance_percentage",
+    "current_gpa",
+    "failed_subjects",
     "backlogs",
-    "assignment_completion",
-    "engagement"
+    "assignment_completion_percentage",
+    "internal_assessment_marks",
+    "exam_score",
+    "lms_activity_score",
+    "fee_pending",
+    "counseling_sessions"
   ],
-  "feature_count": 5,
-  "dropout_rate": 0.512,
+  "feature_count": 11,
+  "dropout_rate": 0.0845,
   "model_type": "XGBClassifier",
-  "categorical_features": [
-    "engagement"
-  ],
+  "categorical_features": [],
   "confusion_matrix": [
     [
-      86,
-      12
+      349,
+      17
     ],
     [
-      12,
-      90
+      29,
+      5
     ]
   ],
-  "true_negatives": 86,
-  "false_positives": 12,
-  "false_negatives": 12,
-  "true_positives": 90,
+  "true_negatives": 349,
+  "false_positives": 17,
+  "false_negatives": 29,
+  "true_positives": 5,
   "feature_importance": {
-    "attendance": 0.2748093903064728,
-    "backlogs": 0.2554221749305725,
-    "gpa": 0.1834522932767868,
-    "assignment_completion": 0.15794846415519714,
-    "engagement": 0.128367617726326
+    "failed_subjects": 0.15149180591106415,
+    "fee_pending": 0.1301572024822235,
+    "current_gpa": 0.10155877470970154,
+    "backlogs": 0.08607153594493866,
+    "internal_assessment_marks": 0.08475180715322495,
+    "lms_activity_score": 0.08214535564184189,
+    "exam_score": 0.0805133506655693,
+    "attendance_percentage": 0.07829587906599045,
+    "assignment_completion_percentage": 0.07521136850118637,
+    "age": 0.06986645609140396,
+    "counseling_sessions": 0.0599365271627903
+  },
+  "model_comparison": {
+    "xgboost": {
+      "accuracy": 0.885,
+      "precision": 0.22727272727272727,
+      "recall": 0.14705882352941177,
+      "f1_score": 0.17857142857142858,
+      "roc_auc": 0.7141594342655095
+    },
+    "logistic_regression": {
+      "accuracy": 0.735,
+      "precision": 0.17857142857142858,
+      "recall": 0.5882352941176471,
+      "f1_score": 0.273972602739726,
+      "roc_auc": 0.7238026358084217
+    }
   }
 }

@@ -162,11 +162,18 @@ const StudentData = () => {
             if (data.data && data.data.activities && data.data.activities.length > 0) {
               const latestActivity = data.data.activities[0];
               statsMap[id] = {
+                age: latestActivity.age || 20,
                 attendance: latestActivity.attendancePercentage || 0,
-                engagement: latestActivity.engagement || 'Medium',
                 gpa: latestActivity.gpa || 0,
+                failedSubjects: latestActivity.failedSubjects || 0,
                 backlogs: latestActivity.backlogs || 0,
                 assignmentCompletion: latestActivity.assignmentCompletion || 0,
+                internalAssessmentMarks: latestActivity.internalAssessmentMarks || 0,
+                examScore: latestActivity.examScore || 0,
+                lmsActivityScore: latestActivity.lmsActivityScore || 0,
+                feePending: latestActivity.feePending || 0,
+                counselingSessions: latestActivity.counselingSessions || 0,
+                engagement: latestActivity.engagement || 'Medium',
                 totalClasses: latestActivity.totalClasses || 0,
                 attendedClasses: latestActivity.attendedClasses || 0,
                 semester: latestActivity.semester || 'N/A',
@@ -176,32 +183,53 @@ const StudentData = () => {
             } else {
               statsMap[id] = {
                 hasData: false,
+                age: 20,
                 attendance: 0,
-                engagement: 'N/A',
                 gpa: 0,
+                failedSubjects: 0,
                 backlogs: 0,
-                assignmentCompletion: 0
+                assignmentCompletion: 0,
+                internalAssessmentMarks: 0,
+                examScore: 0,
+                lmsActivityScore: 0,
+                feePending: 0,
+                counselingSessions: 0,
+                engagement: 'N/A'
               };
             }
           } else {
             statsMap[id] = {
               hasData: false,
+              age: 20,
               attendance: 0,
-              engagement: 'N/A',
               gpa: 0,
+              failedSubjects: 0,
               backlogs: 0,
-              assignmentCompletion: 0
+              assignmentCompletion: 0,
+              internalAssessmentMarks: 0,
+              examScore: 0,
+              lmsActivityScore: 0,
+              feePending: 0,
+              counselingSessions: 0,
+              engagement: 'N/A'
             };
           }
         } catch (error) {
           console.error(`Error fetching stats for student ${id}:`, error);
           statsMap[id] = {
             hasData: false,
+            age: 20,
             attendance: 0,
-            engagement: 'N/A',
             gpa: 0,
+            failedSubjects: 0,
             backlogs: 0,
-            assignmentCompletion: 0
+            assignmentCompletion: 0,
+            internalAssessmentMarks: 0,
+            examScore: 0,
+            lmsActivityScore: 0,
+            feePending: 0,
+            counselingSessions: 0,
+            engagement: 'N/A'
           };
         }
       }
@@ -230,7 +258,6 @@ const StudentData = () => {
           if (response.ok) {
             const data = await response.json();
             if (data.success && data.data) {
-              // Map the risk level properly
               const riskValue = data.data.risk_level || data.data.prediction || 'Low';
               const mappedRisk = mapRiskLevel(riskValue);
               
@@ -284,11 +311,17 @@ const StudentData = () => {
 
         try {
           const payload = {
-            attendance: stats.attendance || 0,
-            gpa: stats.gpa || 0,
-            backlogs: stats.backlogs || 0,
-            assignment_completion: stats.assignmentCompletion || 0,
-            engagement: stats.engagement || 'Medium'
+            age: parseInt(stats.age) || 20,
+            attendance_percentage: parseFloat(stats.attendance) || 0,
+            current_gpa: parseFloat(stats.gpa) || 0,
+            failed_subjects: parseInt(stats.failedSubjects) || 0,
+            backlogs: parseInt(stats.backlogs) || 0,
+            assignment_completion_percentage: parseFloat(stats.assignmentCompletion) || 0,
+            internal_assessment_marks: parseFloat(stats.internalAssessmentMarks) || 0,
+            exam_score: parseFloat(stats.examScore) || 0,
+            lms_activity_score: parseFloat(stats.lmsActivityScore) || 0,
+            fee_pending: parseInt(stats.feePending) || 0,
+            counseling_sessions: parseInt(stats.counselingSessions) || 0
           };
 
           console.log(`📤 Predicting for ${student.name}:`, payload);
@@ -378,11 +411,17 @@ const StudentData = () => {
       toast.info('Running prediction...', toastConfig);
 
       const payload = {
-        attendance: stats.attendance || 0,
-        gpa: stats.gpa || 0,
-        backlogs: stats.backlogs || 0,
-        assignment_completion: stats.assignmentCompletion || 0,
-        engagement: stats.engagement || 'Medium'
+        age: parseInt(stats.age) || 20,
+        attendance_percentage: parseFloat(stats.attendance) || 0,
+        current_gpa: parseFloat(stats.gpa) || 0,
+        failed_subjects: parseInt(stats.failedSubjects) || 0,
+        backlogs: parseInt(stats.backlogs) || 0,
+        assignment_completion_percentage: parseFloat(stats.assignmentCompletion) || 0,
+        internal_assessment_marks: parseFloat(stats.internalAssessmentMarks) || 0,
+        exam_score: parseFloat(stats.examScore) || 0,
+        lms_activity_score: parseFloat(stats.lmsActivityScore) || 0,
+        fee_pending: parseInt(stats.feePending) || 0,
+        counseling_sessions: parseInt(stats.counselingSessions) || 0
       };
 
       console.log(`📤 Predicting for student:`, payload);
@@ -442,11 +481,18 @@ const StudentData = () => {
         if (data.data && data.data.activities && data.data.activities.length > 0) {
           const latestActivity = data.data.activities[0];
           return {
+            age: latestActivity.age || 20,
             attendance: latestActivity.attendancePercentage || 0,
-            engagement: latestActivity.engagement || 'Medium',
             gpa: latestActivity.gpa || 0,
+            failedSubjects: latestActivity.failedSubjects || 0,
             backlogs: latestActivity.backlogs || 0,
             assignmentCompletion: latestActivity.assignmentCompletion || 0,
+            internalAssessmentMarks: latestActivity.internalAssessmentMarks || 0,
+            examScore: latestActivity.examScore || 0,
+            lmsActivityScore: latestActivity.lmsActivityScore || 0,
+            feePending: latestActivity.feePending || 0,
+            counselingSessions: latestActivity.counselingSessions || 0,
+            engagement: latestActivity.engagement || 'Medium',
             totalClasses: latestActivity.totalClasses || 0,
             attendedClasses: latestActivity.attendedClasses || 0,
             semester: latestActivity.semester || 'N/A',
@@ -457,21 +503,35 @@ const StudentData = () => {
       }
       return {
         hasData: false,
+        age: 20,
         attendance: 0,
-        engagement: 'N/A',
         gpa: 0,
+        failedSubjects: 0,
         backlogs: 0,
-        assignmentCompletion: 0
+        assignmentCompletion: 0,
+        internalAssessmentMarks: 0,
+        examScore: 0,
+        lmsActivityScore: 0,
+        feePending: 0,
+        counselingSessions: 0,
+        engagement: 'N/A'
       };
     } catch (error) {
       console.error('Error fetching student stats:', error);
       return {
         hasData: false,
+        age: 20,
         attendance: 0,
-        engagement: 'N/A',
         gpa: 0,
+        failedSubjects: 0,
         backlogs: 0,
-        assignmentCompletion: 0
+        assignmentCompletion: 0,
+        internalAssessmentMarks: 0,
+        examScore: 0,
+        lmsActivityScore: 0,
+        feePending: 0,
+        counselingSessions: 0,
+        engagement: 'N/A'
       };
     }
   };
@@ -556,7 +616,6 @@ const StudentData = () => {
     return <AlertCircle size={16} className="text-gray-600" />;
   };
 
-  // Get engagement color
   const getEngagementColor = (engagement) => {
     switch(engagement?.toLowerCase()) {
       case 'high':
@@ -570,14 +629,12 @@ const StudentData = () => {
     }
   };
 
-  // Get attendance color
   const getAttendanceColor = (attendance) => {
     if (attendance >= 75) return 'text-green-600';
     if (attendance >= 50) return 'text-yellow-600';
     return 'text-red-600';
   };
 
-  // Get risk badge color for table
   const getRiskBadgeColor = (riskLevel) => {
     const level = riskLevel?.toLowerCase();
     if (level === 'high' || level === 'high risk') {
@@ -650,7 +707,7 @@ const StudentData = () => {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-[#080C68]">Student Data</h1>
-          <p className="text-gray-500 mt-1">Manage and view all student information with risk predictions</p>
+          <p className="text-gray-500 mt-1">Manage and view all student information with risk predictions (11 Features)</p>
         </div>
         <button 
           onClick={handlePredictAll}
@@ -751,35 +808,47 @@ const StudentData = () => {
         </div>
       </div>
 
-      {/* Student Table */}
+      {/* Student Table — NOW WITH ALL 11 FEATURES */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
+          <table className="w-full min-w-[2200px]">
             <thead>
               <tr className="bg-[#080C68] text-white">
+                {/* Sticky columns */}
                 <th className="text-left px-4 py-3 text-xs font-semibold sticky left-0 bg-[#080C68] min-w-[120px] z-10">Name</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold min-w-[100px]">USN</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold sticky left-[120px] bg-[#080C68] min-w-[100px] z-10">USN</th>
+                
+                {/* 11 Features */}
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[70px]">Age</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold min-w-[100px]">Attendance %</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[100px]">Engagement</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold min-w-[80px]">GPA</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[100px]">Failed Sub.</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold min-w-[80px]">Backlogs</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold min-w-[100px]">Assignment %</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[120px]">Predicted Risk</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[110px]">Internal Marks</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[90px]">Exam Score</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[100px]">LMS Activity</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[90px]">Fee Pending</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[100px]">Counseling</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[100px]">Engagement</th>
+                
+                {/* Prediction columns */}
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[130px]">Predicted Risk</th>
                 <th className="text-center px-4 py-3 text-xs font-semibold min-w-[100px]">Probability</th>
-                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[100px]">Actions</th>
+                <th className="text-center px-4 py-3 text-xs font-semibold min-w-[130px]">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="10" className="text-center py-8">
+                  <td colSpan="16" className="text-center py-8">
                     <Loader2 size={32} className="animate-spin mx-auto text-[#00A9E0]" />
                     <p className="text-gray-500 mt-2">Loading students...</p>
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="text-center py-8">
+                  <td colSpan="16" className="text-center py-8">
                     <Users size={40} className="mx-auto text-gray-300 mb-3" />
                     <p className="text-gray-500">No students found</p>
                     <p className="text-sm text-gray-400 mt-1">Try adjusting your search or filters</p>
@@ -798,54 +867,145 @@ const StudentData = () => {
                       <td className="px-4 py-3 text-sm font-medium text-[#080C68] sticky left-0 bg-white z-10">
                         {student.name}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-sm text-gray-600 sticky left-[120px] bg-white z-10">
                         {student.usn}
                       </td>
+                      
+                      {/* Age */}
+                      <td className="px-4 py-3 text-center">
+                        {hasData ? (
+                          <span className="text-sm font-semibold text-[#080C68]">{stats.age}</span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      
+                      {/* Attendance % */}
                       <td className="px-4 py-3 text-center">
                         {hasData ? (
                           <span className={`text-sm font-semibold ${getAttendanceColor(stats.attendance)}`}>
                             {stats.attendance}%
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">No data</span>
+                          <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        {hasData ? (
-                          <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getEngagementColor(stats.engagement)}`}>
-                            {stats.engagement}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400">No data</span>
-                        )}
-                      </td>
+                      
+                      {/* GPA */}
                       <td className="px-4 py-3 text-center">
                         {hasData ? (
                           <span className="text-sm font-semibold text-[#080C68]">
                             {stats.gpa.toFixed(1)}
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">No data</span>
+                          <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
+                      
+                      {/* Failed Subjects */}
+                      <td className="px-4 py-3 text-center">
+                        {hasData ? (
+                          <span className={`text-sm font-semibold ${stats.failedSubjects > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {stats.failedSubjects}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      
+                      {/* Backlogs */}
                       <td className="px-4 py-3 text-center">
                         {hasData ? (
                           <span className={`text-sm font-semibold ${stats.backlogs > 0 ? 'text-red-600' : 'text-green-600'}`}>
                             {stats.backlogs}
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">No data</span>
+                          <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
+                      
+                      {/* Assignment % */}
                       <td className="px-4 py-3 text-center">
                         {hasData ? (
                           <span className={`text-sm font-semibold ${stats.assignmentCompletion >= 80 ? 'text-green-600' : stats.assignmentCompletion >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
                             {stats.assignmentCompletion}%
                           </span>
                         ) : (
-                          <span className="text-xs text-gray-400">No data</span>
+                          <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
+                      
+                      {/* Internal Assessment Marks */}
+                      <td className="px-4 py-3 text-center">
+                        {hasData ? (
+                          <span className="text-sm font-semibold text-[#080C68]">
+                            {stats.internalAssessmentMarks}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      
+                      {/* Exam Score */}
+                      <td className="px-4 py-3 text-center">
+                        {hasData ? (
+                          <span className="text-sm font-semibold text-[#080C68]">
+                            {stats.examScore}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      
+                      {/* LMS Activity Score */}
+                      <td className="px-4 py-3 text-center">
+                        {hasData ? (
+                          <span className="text-sm font-semibold text-[#080C68]">
+                            {stats.lmsActivityScore}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      
+                      {/* Fee Pending */}
+                      <td className="px-4 py-3 text-center">
+                        {hasData ? (
+                          <span className={`px-2 py-1 text-xs rounded-full font-semibold ${
+                            stats.feePending === 1 
+                              ? 'bg-red-100 text-red-700' 
+                              : 'bg-green-100 text-green-700'
+                          }`}>
+                            {stats.feePending === 1 ? 'Yes' : 'No'}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      
+                      {/* Counseling Sessions */}
+                      <td className="px-4 py-3 text-center">
+                        {hasData ? (
+                          <span className="text-sm font-semibold text-[#080C68]">
+                            {stats.counselingSessions}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      
+                      {/* Engagement */}
+                      <td className="px-4 py-3 text-center">
+                        {hasData ? (
+                          <span className={`px-2 py-1 text-xs rounded-full font-semibold ${getEngagementColor(stats.engagement)}`}>
+                            {stats.engagement}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </td>
+                      
+                      {/* Predicted Risk */}
                       <td className="px-4 py-3 text-center">
                         {prediction ? (
                           <span className={`px-3 py-1 text-xs rounded-full font-semibold ${getRiskColor(prediction.riskLevel)} inline-flex items-center gap-1`}>
@@ -874,17 +1034,19 @@ const StudentData = () => {
                           </button>
                         )}
                       </td>
+                      
+                      {/* Probability */}
                       <td className="px-4 py-3 text-center">
                         {prediction && prediction.probability > 0 ? (
                           <span className="text-sm font-semibold text-[#080C68]">
                             {(prediction.probability * 100).toFixed(1)}%
                           </span>
-                        ) : prediction?.prediction === 'No Data' ? (
-                          <span className="text-xs text-gray-400">-</span>
                         ) : (
                           <span className="text-xs text-gray-400">-</span>
                         )}
                       </td>
+                      
+                      {/* Actions */}
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
@@ -993,15 +1155,23 @@ const StudentData = () => {
                 </div>
               </div>
 
-              {/* Academic Performance */}
+              {/* Academic Performance — All 11 Features */}
               <div className="mb-6">
                 <h3 className="text-sm font-semibold text-[#080C68] mb-3 flex items-center gap-2">
                   <BarChart3 size={16} className="text-[#00A9E0]" />
-                  Academic Performance
+                  Academic Performance (11 Features)
                 </h3>
                 {selectedStudentStats ? (
                   selectedStudentStats.hasData ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      <div className="bg-indigo-50 rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center gap-1 text-indigo-600 mb-1">
+                          <User size={14} />
+                          <span className="text-xs font-medium">Age</span>
+                        </div>
+                        <p className="text-lg font-bold text-[#080C68]">{selectedStudentStats.age}</p>
+                      </div>
+
                       <div className="bg-blue-50 rounded-lg p-3 text-center">
                         <div className="flex items-center justify-center gap-1 text-blue-600 mb-1">
                           <Target size={14} />
@@ -1015,29 +1185,26 @@ const StudentData = () => {
                         </p>
                       </div>
 
-                      <div className="bg-purple-50 rounded-lg p-3 text-center">
-                        <div className="flex items-center justify-center gap-1 text-purple-600 mb-1">
-                          <Award size={14} />
-                          <span className="text-xs font-medium">Engagement</span>
-                        </div>
-                        <p className={`text-lg font-bold ${getEngagementColor(selectedStudentStats.engagement)}`}>
-                          {selectedStudentStats.engagement}
-                        </p>
-                      </div>
-
                       <div className="bg-green-50 rounded-lg p-3 text-center">
                         <div className="flex items-center justify-center gap-1 text-green-600 mb-1">
                           <Book size={14} />
                           <span className="text-xs font-medium">GPA</span>
                         </div>
-                        <p className="text-lg font-bold text-[#080C68]">
-                          {selectedStudentStats.gpa.toFixed(1)}
-                        </p>
-                        <p className="text-[10px] text-gray-500">out of 10</p>
+                        <p className="text-lg font-bold text-[#080C68]">{selectedStudentStats.gpa.toFixed(1)}</p>
                       </div>
 
                       <div className="bg-red-50 rounded-lg p-3 text-center">
                         <div className="flex items-center justify-center gap-1 text-red-600 mb-1">
+                          <XCircle size={14} />
+                          <span className="text-xs font-medium">Failed Subjects</span>
+                        </div>
+                        <p className={`text-lg font-bold ${selectedStudentStats.failedSubjects > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {selectedStudentStats.failedSubjects}
+                        </p>
+                      </div>
+
+                      <div className="bg-orange-50 rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center gap-1 text-orange-600 mb-1">
                           <AlertCircle size={14} />
                           <span className="text-xs font-medium">Backlogs</span>
                         </div>
@@ -1046,14 +1213,57 @@ const StudentData = () => {
                         </p>
                       </div>
 
-                      <div className="bg-orange-50 rounded-lg p-3 text-center">
-                        <div className="flex items-center justify-center gap-1 text-orange-600 mb-1">
+                      <div className="bg-yellow-50 rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center gap-1 text-yellow-600 mb-1">
                           <ClipboardList size={14} />
                           <span className="text-xs font-medium">Assignment %</span>
                         </div>
                         <p className={`text-lg font-bold ${selectedStudentStats.assignmentCompletion >= 80 ? 'text-green-600' : selectedStudentStats.assignmentCompletion >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
                           {selectedStudentStats.assignmentCompletion}%
                         </p>
+                      </div>
+
+                      <div className="bg-teal-50 rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center gap-1 text-teal-600 mb-1">
+                          <Award size={14} />
+                          <span className="text-xs font-medium">Internal Marks</span>
+                        </div>
+                        <p className="text-lg font-bold text-[#080C68]">{selectedStudentStats.internalAssessmentMarks}</p>
+                      </div>
+
+                      <div className="bg-purple-50 rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center gap-1 text-purple-600 mb-1">
+                          <BarChart3 size={14} />
+                          <span className="text-xs font-medium">Exam Score</span>
+                        </div>
+                        <p className="text-lg font-bold text-[#080C68]">{selectedStudentStats.examScore}</p>
+                      </div>
+
+                      <div className="bg-pink-50 rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center gap-1 text-pink-600 mb-1">
+                          <Activity size={14} />
+                          <span className="text-xs font-medium">LMS Activity</span>
+                        </div>
+                        <p className="text-lg font-bold text-[#080C68]">{selectedStudentStats.lmsActivityScore}</p>
+                      </div>
+
+                      <div className="bg-rose-50 rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center gap-1 text-rose-600 mb-1">
+                          <FileText size={14} />
+                          <span className="text-xs font-medium">Fee Pending</span>
+                        </div>
+                        <p className={`text-lg font-bold ${selectedStudentStats.feePending === 1 ? 'text-red-600' : 'text-green-600'}`}>
+                          {selectedStudentStats.feePending === 1 ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+
+                      <div className="bg-cyan-50 rounded-lg p-3 text-center">
+                        <div className="flex items-center justify-center gap-1 text-cyan-600 mb-1">
+                          <User size={14} />
+                          <span className="text-xs font-medium">Counseling</span>
+                        </div>
+                        <p className="text-lg font-bold text-[#080C68]">{selectedStudentStats.counselingSessions}</p>
+                        <p className="text-[10px] text-gray-500">sessions</p>
                       </div>
                     </div>
                   ) : (
@@ -1108,7 +1318,6 @@ const StudentData = () => {
                         }}
                       />
                     </div>
-                    {/* Recommendations */}
                     <div className="mt-4 p-3 bg-white rounded-lg">
                       <h4 className="text-sm font-medium text-[#080C68] flex items-center gap-2">
                         <Sparkles size={14} className="text-[#00A9E0]" />

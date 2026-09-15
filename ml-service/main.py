@@ -264,40 +264,40 @@ def save_training_history(
 
 
 # ============================================================
-# REQUEST MODELS
+# REQUEST MODELS - UPDATED FOR 11 FEATURES
 # ============================================================
 
 class PredictionRequest(BaseModel):
-
-    attendance: Optional[float] = None
-
-    gpa: Optional[float] = None
-
+    """
+    Request model for student dropout prediction.
+    Supports all 11 features from the dataset.
+    """
+    # Core features
+    age: Optional[float] = None
+    attendance_percentage: Optional[float] = None
+    current_gpa: Optional[float] = None
+    failed_subjects: Optional[int] = None
     backlogs: Optional[int] = None
-
-    assignment_completion: Optional[float] = None
-
-    engagement: Optional[str] = None
+    assignment_completion_percentage: Optional[float] = None
+    internal_assessment_marks: Optional[float] = None
+    exam_score: Optional[float] = None
+    lms_activity_score: Optional[float] = None
+    fee_pending: Optional[int] = None
+    counseling_sessions: Optional[int] = None
 
     class Config:
         extra = "allow"
 
 
 class BatchPredictionRequest(BaseModel):
-
     students: List[PredictionRequest]
 
 
 class PredictionResponse(BaseModel):
-
     prediction: int
-
     probability: float
-
     risk_level: str
-
     used_features: List[str] = []
-
     missing_features: List[str] = []
 
 
@@ -983,7 +983,7 @@ async def train_model():
 
 
 # ============================================================
-# DYNAMIC FEATURE BUILDER - FIXED VERSION
+# DYNAMIC FEATURE BUILDER - UPDATED FOR 11 FEATURES
 # ============================================================
 
 def build_prediction_dataframe(
@@ -1016,11 +1016,37 @@ def build_prediction_dataframe(
 
     missing_features = []
 
-    # Engagement mapping for numeric conversion
-    engagement_mapping = {
-        'high': 2,
-        'medium': 1,
-        'low': 0
+    # Define the 11 standard features
+    standard_features = [
+        "age",
+        "attendance_percentage",
+        "current_gpa",
+        "failed_subjects",
+        "backlogs",
+        "assignment_completion_percentage",
+        "internal_assessment_marks",
+        "exam_score",
+        "lms_activity_score",
+        "fee_pending",
+        "counseling_sessions"
+    ]
+
+    # Map alternative names to standard feature names
+    feature_mapping = {
+        "attendance": "attendance_percentage",
+        "gpa": "current_gpa",
+        "cgpa": "current_gpa",
+        "assignments": "assignment_completion_percentage",
+        "assignment": "assignment_completion_percentage",
+        "assignment_completion": "assignment_completion_percentage",
+        "internal_marks": "internal_assessment_marks",
+        "internal": "internal_assessment_marks",
+        "lms": "lms_activity_score",
+        "lms_score": "lms_activity_score",
+        "engagement": "lms_activity_score",
+        "fee": "fee_pending",
+        "counseling": "counseling_sessions",
+        "sessions": "counseling_sessions"
     }
 
     for feature in feature_names:
@@ -1029,6 +1055,7 @@ def build_prediction_dataframe(
             feature
         ).strip().lower()
 
+        # Check if the feature exists directly
         if feature_key in normalized_input:
 
             value = normalized_input[
@@ -1056,25 +1083,18 @@ def build_prediction_dataframe(
 
             else:
 
-                # SPECIAL HANDLING FOR ENGAGEMENT
-                # Convert string engagement to numeric
-                if feature_key == 'engagement' and isinstance(value, str):
-                    value_lower = value.lower()
-                    if value_lower in engagement_mapping:
-                        row[feature] = float(engagement_mapping[value_lower])
-                    else:
-                        # Try to convert to float directly
-                        try:
-                            row[feature] = float(value)
-                        except (ValueError, TypeError):
-                            row[feature] = np.nan
-                            missing_features.append(feature)
-                else:
-                    row[feature] = value
+                row[feature] = value
+                used_features.append(feature)
 
-                used_features.append(
-                    feature
-                )
+        # Check if there's an alternative name mapping
+        elif feature_key in feature_mapping:
+            mapped_feature = feature_mapping[feature_key]
+            if mapped_feature in normalized_input:
+                value = normalized_input[mapped_feature]
+                if value is not None and not (isinstance(value, str) and value.strip() == ""):
+                    row[feature] = value
+                    used_features.append(feature)
+                    continue
 
         else:
 
@@ -1260,7 +1280,7 @@ def calculate_risk_level(
 
 
 # ============================================================
-# SINGLE PREDICTION - FIXED VERSION
+# SINGLE PREDICTION
 # ============================================================
 
 @app.post(
@@ -1526,4 +1546,41 @@ async def predict_batch(
             len(
                 request.students
             )
+    }
+
+
+# ============================================================
+# GET AVAILABLE FEATURES
+# ============================================================
+
+@app.get(
+    "/api/features"
+)
+async def get_features():
+
+    """Return the list of features the model expects."""
+
+    return {
+
+        "features": feature_names,
+
+        "feature_count": len(feature_names),
+
+        "categorical_features": categorical_columns,
+
+        "expected_features": [
+            "age",
+            "attendance_percentage",
+            "current_gpa",
+            "failed_subjects",
+            "backlogs",
+            "assignment_completion_percentage",
+            "internal_assessment_marks",
+            "exam_score",
+            "lms_activity_score",
+            "fee_pending",
+            "counseling_sessions"
+        ],
+
+        "model_loaded": model is not None
     }

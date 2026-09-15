@@ -23,6 +23,8 @@ const MLModels = () => {
   const [trainingLog, setTrainingLog] = useState('');
   const [trainingHistory, setTrainingHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showModelNotification, setShowModelNotification] = useState(false);
+  const [modelComparison, setModelComparison] = useState(null);
 
   // API URL - fixed to avoid process.env error
   const ML_API_URL = 'http://localhost:8000';
@@ -37,6 +39,16 @@ const MLModels = () => {
       const response = await fetch(`${ML_API_URL}/api/model-info`);
       const data = await response.json();
       setModelInfo(data);
+      
+      // Check if model comparison data exists
+      if (data.metrics?.model_comparison) {
+        setModelComparison(data.metrics.model_comparison);
+        setShowModelNotification(true);
+        // Auto hide after 10 seconds
+        setTimeout(() => {
+          setShowModelNotification(false);
+        }, 10000);
+      }
     } catch (error) {
       console.error('Error fetching model info:', error);
     }
@@ -71,6 +83,8 @@ const MLModels = () => {
   const handleTrainModel = async () => {
     setTraining(true);
     setTrainingLog('Starting training...\n');
+    setShowModelNotification(false);
+    
     try {
       const response = await fetch(`${ML_API_URL}/api/train`, {
         method: 'POST',
@@ -81,9 +95,18 @@ const MLModels = () => {
       const data = await response.json();
       if (data.success) {
         setTrainingLog(data.output || 'Training completed successfully!');
+        await fetchModelInfo();
+        await fetchTrainingHistory();
+        
+        // Show model selection notification if comparison data exists
+        if (modelComparison) {
+          setShowModelNotification(true);
+          setTimeout(() => {
+            setShowModelNotification(false);
+          }, 10000);
+        }
+        
         alert('✅ Model training completed successfully!');
-        fetchModelInfo();
-        fetchTrainingHistory();
       } else {
         setTrainingLog(data.error || 'Training failed');
         alert('❌ Training failed. Check logs for details.');
@@ -162,6 +185,98 @@ const MLModels = () => {
         </div>
       </div>
 
+      {/* Model Selection Notification */}
+      {showModelNotification && modelComparison && modelInfo?.metrics?.model_type && (
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 mb-6 shadow-sm animate-fadeIn">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Brain size={20} className="text-blue-600" />
+            </div>
+            <div className="flex-1">
+              <h4 className="font-semibold text-[#080C68] text-sm">
+                🎯 Model Selection Complete
+              </h4>
+              <p className="text-sm text-gray-600 mt-1">
+                After evaluating both models, <strong className="text-[#080C68]">{modelInfo.metrics.model_type}</strong> was selected with <strong className="text-[#080C68]">{(modelInfo.metrics.accuracy * 100).toFixed(2)}%</strong> accuracy.
+              </p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                {/* XGBoost Results */}
+                <div className="bg-white/70 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full bg-orange-500"></div>
+                    <span className="font-medium text-sm text-gray-700">XGBoost</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 text-xs">
+                    <div>
+                      <span className="text-gray-500">Accuracy:</span>
+                      <span className="font-semibold text-[#080C68] ml-1">
+                        {(modelComparison.xgboost?.accuracy * 100 || 0).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Precision:</span>
+                      <span className="font-semibold text-[#080C68] ml-1">
+                        {(modelComparison.xgboost?.precision * 100 || 0).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">F1:</span>
+                      <span className="font-semibold text-[#080C68] ml-1">
+                        {(modelComparison.xgboost?.f1_score * 100 || 0).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Logistic Regression Results */}
+                <div className="bg-white/70 rounded-lg p-3 border border-gray-200">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                    <span className="font-medium text-sm text-gray-700">Logistic Regression</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-1 text-xs">
+                    <div>
+                      <span className="text-gray-500">Accuracy:</span>
+                      <span className="font-semibold text-[#080C68] ml-1">
+                        {(modelComparison.logistic_regression?.accuracy * 100 || 0).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Precision:</span>
+                      <span className="font-semibold text-[#080C68] ml-1">
+                        {(modelComparison.logistic_regression?.precision * 100 || 0).toFixed(2)}%
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">F1:</span>
+                      <span className="font-semibold text-[#080C68] ml-1">
+                        {(modelComparison.logistic_regression?.f1_score * 100 || 0).toFixed(2)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
+                <CheckCircle size={14} className="text-green-500" />
+                <span>
+                  Selected: <strong className="text-[#080C68]">{modelInfo.metrics.model_type}</strong>
+                  {modelInfo.metrics.model_type === 'XGBClassifier' ? ' (Higher accuracy)' : ' (Higher accuracy)'}
+                </span>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowModelNotification(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <span className="sr-only">Close</span>
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Model Status */}
       <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-6">
         <div className="flex items-center gap-3 mb-2">
@@ -172,7 +287,7 @@ const MLModels = () => {
           {modelInfo?.status === 'loaded' ? '✅ Model is loaded and ready for predictions' : '⚠️ No model loaded. Please train the model.'}
         </p>
         {modelInfo?.status === 'loaded' && (
-          <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-4">
             <div>
               <p className="text-xs text-gray-500">Model Type</p>
               <p className="font-medium text-[#080C68]">{modelInfo.model_type || 'N/A'}</p>
@@ -188,8 +303,16 @@ const MLModels = () => {
               <p className="font-medium text-[#080C68]">{modelInfo.features?.length || 0}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Classes</p>
-              <p className="font-medium text-[#080C68]">{modelInfo.engagement_classes?.length || 0}</p>
+              <p className="text-xs text-gray-500">Precision</p>
+              <p className="font-medium text-[#080C68]">
+                {modelInfo.metrics?.precision ? `${(modelInfo.metrics.precision * 100).toFixed(1)}%` : 'N/A'}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">F1 Score</p>
+              <p className="font-medium text-[#080C68]">
+                {modelInfo.metrics?.f1_score ? `${(modelInfo.metrics.f1_score * 100).toFixed(1)}%` : 'N/A'}
+              </p>
             </div>
           </div>
         )}
@@ -275,6 +398,7 @@ const MLModels = () => {
                     <p className="text-xs text-gray-500">
                       {formatDate(item.date)} • Accuracy: {(item.accuracy * 100).toFixed(1)}% • 
                       {item.samples} samples • {item.features} features
+                      {item.model_type && ` • Model: ${item.model_type}`}
                     </p>
                   </div>
                 </div>
@@ -288,6 +412,23 @@ const MLModels = () => {
           </div>
         )}
       </div>
+
+      {/* Add CSS animation for notification */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.5s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

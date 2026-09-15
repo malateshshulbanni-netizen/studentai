@@ -18,7 +18,10 @@ import {
   FileText,
   Download,
   Search,
-  Users
+  Users,
+  BarChart3,
+  Clock,
+  Award
 } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -39,11 +42,17 @@ const Predict = () => {
     phone: '',
     course: '',
     semester: '',
-    attendance: '',
-    gpa: '',
+    age: '',
+    attendance_percentage: '',
+    current_gpa: '',
+    failed_subjects: '',
     backlogs: '',
-    assignment_completion: '',
-    engagement: 'Medium'
+    assignment_completion_percentage: '',
+    internal_assessment_marks: '',
+    exam_score: '',
+    lms_activity_score: '',
+    fee_pending: '0',
+    counseling_sessions: ''
   });
 
   const [errors, setErrors] = useState({});
@@ -88,17 +97,58 @@ const Predict = () => {
     else if (!/^\d{10}$/.test(studentData.phone)) newErrors.phone = 'Valid 10-digit phone is required';
     if (!studentData.course.trim()) newErrors.course = 'Course is required';
     if (!studentData.semester.trim()) newErrors.semester = 'Semester is required';
-    if (!studentData.attendance) newErrors.attendance = 'Attendance is required';
-    else if (studentData.attendance < 0 || studentData.attendance > 100) newErrors.attendance = 'Attendance must be between 0-100';
-    if (!studentData.gpa) newErrors.gpa = 'GPA is required';
-    else if (studentData.gpa < 0 || studentData.gpa > 10) newErrors.gpa = 'GPA must be between 0-10';
+    
+    // 11 Features Validation
+    if (!studentData.age) newErrors.age = 'Age is required';
+    else if (studentData.age < 17 || studentData.age > 30) newErrors.age = 'Age must be between 17-30';
+    
+    if (!studentData.attendance_percentage) newErrors.attendance_percentage = 'Attendance is required';
+    else if (studentData.attendance_percentage < 0 || studentData.attendance_percentage > 100) {
+      newErrors.attendance_percentage = 'Attendance must be between 0-100';
+    }
+    
+    if (!studentData.current_gpa) newErrors.current_gpa = 'GPA is required';
+    else if (studentData.current_gpa < 0 || studentData.current_gpa > 10) {
+      newErrors.current_gpa = 'GPA must be between 0-10';
+    }
+    
+    if (studentData.failed_subjects === '') newErrors.failed_subjects = 'Failed subjects is required';
+    else if (studentData.failed_subjects < 0) newErrors.failed_subjects = 'Failed subjects cannot be negative';
+    
     if (studentData.backlogs === '') newErrors.backlogs = 'Backlogs is required';
     else if (studentData.backlogs < 0) newErrors.backlogs = 'Backlogs cannot be negative';
-    if (!studentData.assignment_completion) newErrors.assignment_completion = 'Assignment completion is required';
-    else if (studentData.assignment_completion < 0 || studentData.assignment_completion > 100) {
-      newErrors.assignment_completion = 'Assignment completion must be between 0-100';
+    
+    if (!studentData.assignment_completion_percentage) {
+      newErrors.assignment_completion_percentage = 'Assignment completion is required';
+    } else if (studentData.assignment_completion_percentage < 0 || studentData.assignment_completion_percentage > 100) {
+      newErrors.assignment_completion_percentage = 'Assignment completion must be between 0-100';
     }
-    if (!studentData.engagement) newErrors.engagement = 'Engagement is required';
+    
+    if (!studentData.internal_assessment_marks) {
+      newErrors.internal_assessment_marks = 'Internal assessment marks is required';
+    } else if (studentData.internal_assessment_marks < 0 || studentData.internal_assessment_marks > 100) {
+      newErrors.internal_assessment_marks = 'Internal assessment marks must be between 0-100';
+    }
+    
+    if (!studentData.exam_score) {
+      newErrors.exam_score = 'Exam score is required';
+    } else if (studentData.exam_score < 0 || studentData.exam_score > 100) {
+      newErrors.exam_score = 'Exam score must be between 0-100';
+    }
+    
+    if (!studentData.lms_activity_score) {
+      newErrors.lms_activity_score = 'LMS activity score is required';
+    } else if (studentData.lms_activity_score < 0 || studentData.lms_activity_score > 100) {
+      newErrors.lms_activity_score = 'LMS activity score must be between 0-100';
+    }
+    
+    if (studentData.fee_pending === '') newErrors.fee_pending = 'Fee status is required';
+    
+    if (studentData.counseling_sessions === '') {
+      newErrors.counseling_sessions = 'Counseling sessions is required';
+    } else if (studentData.counseling_sessions < 0) {
+      newErrors.counseling_sessions = 'Counseling sessions cannot be negative';
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -127,11 +177,17 @@ const Predict = () => {
       }
 
       const payload = {
-        attendance: parseFloat(studentData.attendance),
-        gpa: parseFloat(studentData.gpa),
-        backlogs: parseInt(studentData.backlogs),
-        assignment_completion: parseFloat(studentData.assignment_completion),
-        engagement: studentData.engagement
+        age: parseInt(studentData.age),
+        attendance_percentage: parseFloat(studentData.attendance_percentage),
+        current_gpa: parseFloat(studentData.current_gpa),
+        failed_subjects: parseInt(studentData.failed_subjects) || 0,
+        backlogs: parseInt(studentData.backlogs) || 0,
+        assignment_completion_percentage: parseFloat(studentData.assignment_completion_percentage),
+        internal_assessment_marks: parseFloat(studentData.internal_assessment_marks),
+        exam_score: parseFloat(studentData.exam_score),
+        lms_activity_score: parseFloat(studentData.lms_activity_score),
+        fee_pending: parseInt(studentData.fee_pending) || 0,
+        counseling_sessions: parseInt(studentData.counseling_sessions) || 0
       };
 
       console.log('📤 Sending prediction request:', payload);
@@ -146,11 +202,19 @@ const Predict = () => {
       });
 
       const data = await response.json();
+      
       console.log('📥 Prediction response:', data);
 
       if (response.ok) {
+        // Extract data properly - handle both direct response and nested data
+        const responseData = data.data || data;
+        
         setResult({
-          ...data.data,
+          prediction: responseData.prediction,
+          probability: responseData.probability,
+          risk_level: responseData.risk_level,
+          used_features: responseData.used_features || [],
+          missing_features: responseData.missing_features || [],
           studentInfo: {
             name: studentData.name,
             email: studentData.email,
@@ -198,11 +262,18 @@ const Predict = () => {
     try {
       const text = await file.text();
       const lines = text.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
       
-      // Check required columns
-      const requiredColumns = ['attendance', 'gpa', 'backlogs', 'assignment_completion', 'engagement'];
-      const missingColumns = requiredColumns.filter(col => !headers.some(h => h.toLowerCase().includes(col)));
+      // Check required columns for 11 features
+      const requiredColumns = [
+        'age', 'attendance_percentage', 'current_gpa', 'failed_subjects', 'backlogs',
+        'assignment_completion_percentage', 'internal_assessment_marks', 'exam_score',
+        'lms_activity_score', 'fee_pending', 'counseling_sessions'
+      ];
+      
+      const missingColumns = requiredColumns.filter(col => 
+        !headers.some(h => h === col || h.includes(col.replace('_', '')))
+      );
       
       if (missingColumns.length > 0) {
         toast.error(`Missing columns: ${missingColumns.join(', ')}`, toastConfig);
@@ -216,29 +287,65 @@ const Predict = () => {
         if (!lines[i].trim()) continue;
         const values = lines[i].split(',').map(v => v.trim());
         const student = {};
+        
         headers.forEach((header, index) => {
           const value = values[index] || '';
           const headerLower = header.toLowerCase();
-          if (headerLower.includes('attendance')) student.attendance = parseFloat(value) || 0;
-          else if (headerLower.includes('gpa')) student.gpa = parseFloat(value) || 0;
-          else if (headerLower.includes('backlog')) student.backlogs = parseInt(value) || 0;
-          else if (headerLower.includes('assignment') || headerLower.includes('completion')) {
-            student.assignment_completion = parseFloat(value) || 0;
-          } else if (headerLower.includes('engagement')) student.engagement = value || 'Medium';
-          else if (headerLower.includes('name')) student.name = value || `Student ${i}`;
-          else if (headerLower.includes('email')) student.email = value || `student${i}@example.com`;
-          else if (headerLower.includes('phone')) student.phone = value || '9876543210';
-          else if (headerLower.includes('course')) student.course = value || 'BE - Computer Science';
-          else if (headerLower.includes('semester')) student.semester = value || '3';
+          
+          if (headerLower === 'age') student.age = parseInt(value) || 20;
+          else if (headerLower === 'attendance_percentage' || headerLower === 'attendance') {
+            student.attendance_percentage = parseFloat(value) || 70;
+          }
+          else if (headerLower === 'current_gpa' || headerLower === 'gpa') {
+            student.current_gpa = parseFloat(value) || 7.0;
+          }
+          else if (headerLower === 'failed_subjects' || headerLower === 'failed') {
+            student.failed_subjects = parseInt(value) || 0;
+          }
+          else if (headerLower === 'backlogs') student.backlogs = parseInt(value) || 0;
+          else if (headerLower === 'assignment_completion_percentage' || headerLower === 'assignment') {
+            student.assignment_completion_percentage = parseFloat(value) || 75;
+          }
+          else if (headerLower === 'internal_assessment_marks' || headerLower === 'internal') {
+            student.internal_assessment_marks = parseFloat(value) || 65;
+          }
+          else if (headerLower === 'exam_score' || headerLower === 'exam') {
+            student.exam_score = parseFloat(value) || 60;
+          }
+          else if (headerLower === 'lms_activity_score' || headerLower === 'lms') {
+            student.lms_activity_score = parseFloat(value) || 60;
+          }
+          else if (headerLower === 'fee_pending' || headerLower === 'fee') {
+            student.fee_pending = parseInt(value) || 0;
+          }
+          else if (headerLower === 'counseling_sessions' || headerLower === 'counseling') {
+            student.counseling_sessions = parseInt(value) || 0;
+          }
+          else if (headerLower === 'student_id') student.student_id = value || `STU${i}`;
+          else if (headerLower === 'name') student.name = value || `Student ${i}`;
+          else if (headerLower === 'email') student.email = value || `student${i}@example.com`;
+          else if (headerLower === 'phone') student.phone = value || '9876543210';
+          else if (headerLower === 'course') student.course = value || 'BE - Computer Science';
+          else if (headerLower === 'semester') student.semester = value || '3';
         });
         
-        // Ensure required fields have default values
         if (!student.name) student.name = `Student ${i}`;
         if (!student.email) student.email = `student${i}@example.com`;
         if (!student.phone) student.phone = '9876543210';
         if (!student.course) student.course = 'BE - Computer Science';
         if (!student.semester) student.semester = '3';
-        if (!student.engagement) student.engagement = 'Medium';
+        
+        if (!student.age) student.age = 20;
+        if (!student.attendance_percentage) student.attendance_percentage = 70;
+        if (!student.current_gpa) student.current_gpa = 7.0;
+        if (!student.failed_subjects && student.failed_subjects !== 0) student.failed_subjects = 0;
+        if (!student.backlogs && student.backlogs !== 0) student.backlogs = 0;
+        if (!student.assignment_completion_percentage) student.assignment_completion_percentage = 75;
+        if (!student.internal_assessment_marks) student.internal_assessment_marks = 65;
+        if (!student.exam_score) student.exam_score = 60;
+        if (!student.lms_activity_score) student.lms_activity_score = 60;
+        if (!student.fee_pending && student.fee_pending !== 0) student.fee_pending = 0;
+        if (!student.counseling_sessions && student.counseling_sessions !== 0) student.counseling_sessions = 0;
         
         students.push(student);
       }
@@ -251,7 +358,6 @@ const Predict = () => {
 
       toast.info(`Processing ${students.length} students...`, toastConfig);
       
-      // Process batch predictions
       const token = localStorage.getItem('token');
       if (!token) {
         toast.error('Please login again', toastConfig);
@@ -260,15 +366,24 @@ const Predict = () => {
       }
 
       const results = [];
+      let successCount = 0;
+      let failCount = 0;
+      
       for (let i = 0; i < students.length; i++) {
         const student = students[i];
         try {
           const payload = {
-            attendance: parseFloat(student.attendance) || 0,
-            gpa: parseFloat(student.gpa) || 0,
+            age: parseInt(student.age) || 20,
+            attendance_percentage: parseFloat(student.attendance_percentage) || 70,
+            current_gpa: parseFloat(student.current_gpa) || 7.0,
+            failed_subjects: parseInt(student.failed_subjects) || 0,
             backlogs: parseInt(student.backlogs) || 0,
-            assignment_completion: parseFloat(student.assignment_completion) || 0,
-            engagement: student.engagement || 'Medium'
+            assignment_completion_percentage: parseFloat(student.assignment_completion_percentage) || 75,
+            internal_assessment_marks: parseFloat(student.internal_assessment_marks) || 65,
+            exam_score: parseFloat(student.exam_score) || 60,
+            lms_activity_score: parseFloat(student.lms_activity_score) || 60,
+            fee_pending: parseInt(student.fee_pending) || 0,
+            counseling_sessions: parseInt(student.counseling_sessions) || 0
           };
 
           const response = await fetch(`${API_BASE_URL}/api/predict`, {
@@ -283,8 +398,10 @@ const Predict = () => {
           const data = await response.json();
           
           if (response.ok) {
+            successCount++;
+            const responseData = data.data || data;
             results.push({
-              ...data.data,
+              ...responseData,
               studentInfo: {
                 name: student.name || `Student ${i + 1}`,
                 email: student.email || `student${i+1}@example.com`,
@@ -294,8 +411,9 @@ const Predict = () => {
               }
             });
           } else {
+            failCount++;
             results.push({
-              error: data.message || 'Prediction failed',
+              error: data.message || data.detail || 'Prediction failed',
               studentInfo: {
                 name: student.name || `Student ${i + 1}`,
                 email: student.email || `student${i+1}@example.com`
@@ -303,8 +421,9 @@ const Predict = () => {
             });
           }
         } catch (err) {
+          failCount++;
           results.push({
-            error: 'Network error',
+            error: 'Network error: ' + err.message,
             studentInfo: {
               name: student.name || `Student ${i + 1}`,
               email: student.email || `student${i+1}@example.com`
@@ -314,11 +433,18 @@ const Predict = () => {
       }
 
       setBatchResults(results);
-      toast.success(`✅ Processed ${results.length} students successfully!`, toastConfig);
+      
+      if (successCount > 0 && failCount === 0) {
+        toast.success(`✅ All ${students.length} students processed successfully!`, toastConfig);
+      } else if (successCount > 0 && failCount > 0) {
+        toast.warning(`⚠️ Processed ${students.length} students (${successCount} successful, ${failCount} failed)`, toastConfig);
+      } else {
+        toast.error(`❌ All ${students.length} students failed to process`, toastConfig);
+      }
       
     } catch (error) {
       console.error('❌ File upload error:', error);
-      toast.error('Error processing CSV file', toastConfig);
+      toast.error('Error processing CSV file: ' + error.message, toastConfig);
     } finally {
       setUploading(false);
     }
@@ -388,10 +514,10 @@ const Predict = () => {
   const exportResults = () => {
     if (batchResults.length === 0) return;
     
-    let csv = 'Name,Email,Risk Level,Probability\n';
+    let csv = 'Name,Email,Risk Level,Probability,Prediction\n';
     batchResults.forEach(r => {
       if (!r.error) {
-        csv += `${r.studentInfo.name},${r.studentInfo.email},${r.risk_level},${(r.probability * 100).toFixed(1)}%\n`;
+        csv += `${r.studentInfo.name},${r.studentInfo.email},${r.risk_level},${(r.probability * 100).toFixed(1)}%,${r.prediction === 1 ? 'Dropout' : 'Graduate'}\n`;
       }
     });
     
@@ -435,7 +561,7 @@ const Predict = () => {
               <Brain size={28} className="text-[#00A9E0]" />
               Predict Dropout Risk
             </h1>
-            <p className="text-gray-500 mt-1">Enter student details or upload CSV for batch prediction</p>
+            <p className="text-gray-500 mt-1">Enter student details with all 11 features or upload CSV for batch prediction</p>
           </div>
           <button
             onClick={() => setIsBatchMode(!isBatchMode)}
@@ -472,7 +598,10 @@ const Predict = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Form */}
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h2 className="text-lg font-semibold text-[#080C68] mb-4">Student Details</h2>
+            <h2 className="text-lg font-semibold text-[#080C68] mb-4 flex items-center gap-2">
+              <User size={20} className="text-[#00A9E0]" />
+              Student Details (11 Features)
+            </h2>
             
             <form onSubmit={handlePredict} className="space-y-4">
               {/* Personal Info */}
@@ -576,25 +705,25 @@ const Predict = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-[#080C68] mb-1">
-                    Engagement Level <span className="text-red-500">*</span>
+                    Age <span className="text-red-500">*</span>
                   </label>
-                  <select
-                    name="engagement"
-                    value={studentData.engagement}
+                  <input
+                    type="number"
+                    name="age"
+                    value={studentData.age}
                     onChange={handleChange}
+                    placeholder="17-30"
+                    min="17"
+                    max="30"
                     className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
-                      errors.engagement ? 'border-red-500' : 'border-gray-200'
+                      errors.age ? 'border-red-500' : 'border-gray-200'
                     }`}
-                  >
-                    <option value="High">High</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Low">Low</option>
-                  </select>
-                  {errors.engagement && <p className="text-red-500 text-xs mt-1">{errors.engagement}</p>}
+                  />
+                  {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
                 </div>
               </div>
 
-              {/* Academic Metrics */}
+              {/* Academic Metrics - Row 1 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#080C68] mb-1">
@@ -602,41 +731,60 @@ const Predict = () => {
                   </label>
                   <input
                     type="number"
-                    name="attendance"
-                    value={studentData.attendance}
+                    name="attendance_percentage"
+                    value={studentData.attendance_percentage}
                     onChange={handleChange}
                     placeholder="0-100"
                     min="0"
                     max="100"
                     className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
-                      errors.attendance ? 'border-red-500' : 'border-gray-200'
+                      errors.attendance_percentage ? 'border-red-500' : 'border-gray-200'
                     }`}
                   />
-                  {errors.attendance && <p className="text-red-500 text-xs mt-1">{errors.attendance}</p>}
+                  {errors.attendance_percentage && <p className="text-red-500 text-xs mt-1">{errors.attendance_percentage}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-[#080C68] mb-1">
-                    GPA (0-10) <span className="text-red-500">*</span>
+                    Current GPA (0-10) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
-                    name="gpa"
-                    value={studentData.gpa}
+                    name="current_gpa"
+                    value={studentData.current_gpa}
                     onChange={handleChange}
                     placeholder="0-10"
                     min="0"
                     max="10"
-                    step="0.1"
+                    step="0.01"
                     className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
-                      errors.gpa ? 'border-red-500' : 'border-gray-200'
+                      errors.current_gpa ? 'border-red-500' : 'border-gray-200'
                     }`}
                   />
-                  {errors.gpa && <p className="text-red-500 text-xs mt-1">{errors.gpa}</p>}
+                  {errors.current_gpa && <p className="text-red-500 text-xs mt-1">{errors.current_gpa}</p>}
                 </div>
               </div>
 
+              {/* Academic Metrics - Row 2 */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#080C68] mb-1">
+                    Failed Subjects <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="failed_subjects"
+                    value={studentData.failed_subjects}
+                    onChange={handleChange}
+                    placeholder="Number of failed subjects"
+                    min="0"
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
+                      errors.failed_subjects ? 'border-red-500' : 'border-gray-200'
+                    }`}
+                  />
+                  {errors.failed_subjects && <p className="text-red-500 text-xs mt-1">{errors.failed_subjects}</p>}
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-[#080C68] mb-1">
                     Backlogs <span className="text-red-500">*</span>
@@ -654,24 +802,126 @@ const Predict = () => {
                   />
                   {errors.backlogs && <p className="text-red-500 text-xs mt-1">{errors.backlogs}</p>}
                 </div>
+              </div>
 
+              {/* Academic Metrics - Row 3 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[#080C68] mb-1">
                     Assignment Completion (%) <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
-                    name="assignment_completion"
-                    value={studentData.assignment_completion}
+                    name="assignment_completion_percentage"
+                    value={studentData.assignment_completion_percentage}
                     onChange={handleChange}
                     placeholder="0-100"
                     min="0"
                     max="100"
                     className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
-                      errors.assignment_completion ? 'border-red-500' : 'border-gray-200'
+                      errors.assignment_completion_percentage ? 'border-red-500' : 'border-gray-200'
                     }`}
                   />
-                  {errors.assignment_completion && <p className="text-red-500 text-xs mt-1">{errors.assignment_completion}</p>}
+                  {errors.assignment_completion_percentage && <p className="text-red-500 text-xs mt-1">{errors.assignment_completion_percentage}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#080C68] mb-1">
+                    Internal Assessment Marks (%) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="internal_assessment_marks"
+                    value={studentData.internal_assessment_marks}
+                    onChange={handleChange}
+                    placeholder="0-100"
+                    min="0"
+                    max="100"
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
+                      errors.internal_assessment_marks ? 'border-red-500' : 'border-gray-200'
+                    }`}
+                  />
+                  {errors.internal_assessment_marks && <p className="text-red-500 text-xs mt-1">{errors.internal_assessment_marks}</p>}
+                </div>
+              </div>
+
+              {/* Academic Metrics - Row 4 */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#080C68] mb-1">
+                    Exam Score (%) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="exam_score"
+                    value={studentData.exam_score}
+                    onChange={handleChange}
+                    placeholder="0-100"
+                    min="0"
+                    max="100"
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
+                      errors.exam_score ? 'border-red-500' : 'border-gray-200'
+                    }`}
+                  />
+                  {errors.exam_score && <p className="text-red-500 text-xs mt-1">{errors.exam_score}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#080C68] mb-1">
+                    LMS Activity Score (%) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="lms_activity_score"
+                    value={studentData.lms_activity_score}
+                    onChange={handleChange}
+                    placeholder="0-100"
+                    min="0"
+                    max="100"
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
+                      errors.lms_activity_score ? 'border-red-500' : 'border-gray-200'
+                    }`}
+                  />
+                  {errors.lms_activity_score && <p className="text-red-500 text-xs mt-1">{errors.lms_activity_score}</p>}
+                </div>
+              </div>
+
+              {/* Financial & Support Metrics */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-[#080C68] mb-1">
+                    Fee Pending <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="fee_pending"
+                    value={studentData.fee_pending}
+                    onChange={handleChange}
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
+                      errors.fee_pending ? 'border-red-500' : 'border-gray-200'
+                    }`}
+                  >
+                    <option value="0">No</option>
+                    <option value="1">Yes</option>
+                  </select>
+                  {errors.fee_pending && <p className="text-red-500 text-xs mt-1">{errors.fee_pending}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[#080C68] mb-1">
+                    Counseling Sessions <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="counseling_sessions"
+                    value={studentData.counseling_sessions}
+                    onChange={handleChange}
+                    placeholder="Number of sessions"
+                    min="0"
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors ${
+                      errors.counseling_sessions ? 'border-red-500' : 'border-gray-200'
+                    }`}
+                  />
+                  {errors.counseling_sessions && <p className="text-red-500 text-xs mt-1">{errors.counseling_sessions}</p>}
                 </div>
               </div>
 
@@ -720,9 +970,7 @@ const Predict = () => {
                     <h3 className="text-2xl font-bold mt-3">Risk Level: {result.risk_level}</h3>
                     <p className="text-sm mt-1">Probability: {(result.probability * 100).toFixed(1)}%</p>
                     <p className="text-sm mt-2">
-                      {result.risk_level === 'HIGH' && '⚠️ Student is at high risk of dropping out. Immediate intervention needed!'}
-                      {result.risk_level === 'MEDIUM' && '📊 Student shows medium risk. Monitor progress and provide support.'}
-                      {result.risk_level === 'LOW' && '✅ Student is on track. Continue current support and monitoring.'}
+                      {result.prediction === 1 ? '⚠️ Student is at high risk of dropping out. Immediate intervention needed!' : '✅ Student is on track to graduate. Continue current support.'}
                     </p>
                   </div>
                 </div>
@@ -761,10 +1009,10 @@ const Predict = () => {
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <h2 className="text-lg font-semibold text-[#080C68] mb-4 flex items-center gap-2">
               <Upload size={20} className="text-[#00A9E0]" />
-              Upload CSV for Batch Prediction
+              Upload CSV for Batch Prediction (11 Features)
             </h2>
             <p className="text-sm text-gray-500 mb-4">
-              Upload a CSV file with student data. Required columns: attendance, gpa, backlogs, assignment_completion, engagement
+              Upload a CSV file with student data. Required columns: age, attendance_percentage, current_gpa, failed_subjects, backlogs, assignment_completion_percentage, internal_assessment_marks, exam_score, lms_activity_score, fee_pending, counseling_sessions
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <input
@@ -832,13 +1080,14 @@ const Predict = () => {
                       <th className="text-left px-4 py-3 text-xs font-semibold text-[#080C68]">Email</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-[#080C68]">Risk Level</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-[#080C68]">Probability</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-[#080C68]">Prediction</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-[#080C68]">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredResults.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="px-4 py-8 text-center text-gray-500">
+                        <td colSpan="6" className="px-4 py-8 text-center text-gray-500">
                           {searchTerm ? 'No students found matching your search' : 'No results to display'}
                         </td>
                       </tr>
@@ -860,6 +1109,15 @@ const Predict = () => {
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-600">
                             {result.error ? '-' : `${(result.probability * 100).toFixed(1)}%`}
+                          </td>
+                          <td className="px-4 py-3">
+                            {result.error ? (
+                              '-'
+                            ) : (
+                              <span className={`text-xs font-semibold ${result.prediction === 1 ? 'text-red-600' : 'text-green-600'}`}>
+                                {result.prediction === 1 ? 'Dropout' : 'Graduate'}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             {result.error ? (
