@@ -12,9 +12,12 @@ const Header = ({ toggleMobileMenu, isCollapsed }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(3);
+  const [meetingCount, setMeetingCount] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const dropdownRef = useRef(null);
+
+  // ✅ Hardcoded API URL — same as Dashboard.jsx
+  const API_URL = 'http://localhost:5000';
 
   useEffect(() => {
     const checkScreenSize = () => {
@@ -34,6 +37,60 @@ const Header = ({ toggleMobileMenu, isCollapsed }) => {
         console.error('Failed to parse user data:', e);
       }
     }
+  }, []);
+
+  // ✅ Fetch upcoming meetings count
+  useEffect(() => {
+    const fetchMeetingCount = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const userData = localStorage.getItem('user');
+        
+        if (!token || !userData) return;
+
+        let userId = null;
+        let role = 'student';
+        
+        try {
+          const userObj = JSON.parse(userData);
+          userId = userObj._id || userObj.id;
+          role = (userObj.role || 'student').toLowerCase();
+        } catch (e) {
+          console.error('Failed to parse user data:', e);
+          return;
+        }
+
+        if (!userId) return;
+
+        // Pick the correct endpoint based on role
+        const endpoint = role === 'faculty'
+          ? `${API_URL}/api/meetings/faculty/${userId}`
+          : `${API_URL}/api/meetings/student/${userId}`;
+
+        const response = await fetch(endpoint, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            const upcoming = data.data.upcoming?.length || 0;
+            const live = data.data.live?.length || 0;
+            setMeetingCount(upcoming + live);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching meeting count:', error);
+      }
+    };
+
+    fetchMeetingCount();
+
+    // Refresh count every 60 seconds
+    const interval = setInterval(fetchMeetingCount, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -67,6 +124,11 @@ const Header = ({ toggleMobileMenu, isCollapsed }) => {
     navigate('/student/profile');
   };
 
+  // ✅ Navigate to interventions page
+  const handleNotificationClick = () => {
+    navigate('/student/interventions');
+  };
+
   const leftOffset = isMobile ? 0 : (isCollapsed ? 64 : 224);
 
   return (
@@ -93,15 +155,21 @@ const Header = ({ toggleMobileMenu, isCollapsed }) => {
 
       {/* Right Section */}
       <div className="flex items-center gap-1 sm:gap-2 md:gap-4 flex-shrink-0">
-        {/* Notifications */}
+        {/* ✅ Notifications — shows meeting count and navigates to interventions */}
         <button 
+          onClick={handleNotificationClick}
           className="relative p-1.5 sm:p-2 text-gray-600 hover:text-[#00A9E0] transition-colors rounded-lg hover:bg-gray-50"
-          aria-label={`Notifications${notificationCount > 0 ? ` (${notificationCount} new)` : ''}`}
+          aria-label={`Meetings${meetingCount > 0 ? ` (${meetingCount} upcoming)` : ''}`}
+          title={
+            meetingCount > 0 
+              ? `${meetingCount} upcoming meeting${meetingCount > 1 ? 's' : ''}` 
+              : 'No upcoming meetings'
+          }
         >
           <Bell size={20} />
-          {notificationCount > 0 && (
+          {meetingCount > 0 && (
             <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-semibold rounded-full flex items-center justify-center">
-              {notificationCount > 9 ? '9+' : notificationCount}
+              {meetingCount > 9 ? '9+' : meetingCount}
             </span>
           )}
         </button>
@@ -140,7 +208,6 @@ const Header = ({ toggleMobileMenu, isCollapsed }) => {
                 </p>
               </div>
 
-              {/* Profile only — Settings removed */}
               <button 
                 onClick={handleProfileClick}
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"

@@ -124,8 +124,8 @@ exports.scheduleMeeting = async (req, res) => {
       status: 'scheduled',
       isRecurring: isRecurring || false,
       recurrencePattern: recurrencePattern || null,
-      roomId: roomId,  // Explicitly set
-      joinLink: joinLink  // Explicitly set
+      roomId: roomId,
+      joinLink: joinLink
     };
 
     console.log('Meeting data to save:', meetingData);
@@ -156,7 +156,6 @@ exports.scheduleMeeting = async (req, res) => {
   } catch (error) {
     console.error('Error scheduling meeting:', error);
     
-    // Check for validation errors
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({
@@ -233,7 +232,6 @@ exports.getStudentMeetings = async (req, res) => {
     const { studentId } = req.params;
     const { status } = req.query;
 
-    // Check if the requesting user is the student
     if (req.user.id !== studentId && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -241,26 +239,22 @@ exports.getStudentMeetings = async (req, res) => {
       });
     }
 
-    // Build query
     const query = { studentId: studentId };
     if (status) {
       query.status = status;
     }
 
-    // Get meetings and auto-update statuses
     const meetings = await Meeting.find(query)
       .populate('studentId', 'name usn email course branch semester')
       .populate('facultyId', 'fullName email department')
       .populate('createdBy', 'fullName email')
       .sort({ date: -1, time: -1 });
 
-    // Update statuses for each meeting
     for (const meeting of meetings) {
       meeting.updateStatus();
       await meeting.save();
     }
 
-    // Categorize meetings
     const upcoming = meetings.filter(m => m.status === 'scheduled' && m.isUpcoming);
     const live = meetings.filter(m => m.status === 'live' || m.isLive);
     const completed = meetings.filter(m => m.status === 'completed' || m.isCompleted);
@@ -306,7 +300,6 @@ exports.getFacultyMeetings = async (req, res) => {
     const { facultyId } = req.params;
     const { status } = req.query;
 
-    // Check if the requesting user is the faculty
     if (req.user.id !== facultyId && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -314,7 +307,6 @@ exports.getFacultyMeetings = async (req, res) => {
       });
     }
 
-    // Build query
     const query = { facultyId: facultyId };
     if (status) {
       query.status = status;
@@ -326,13 +318,11 @@ exports.getFacultyMeetings = async (req, res) => {
       .populate('createdBy', 'fullName email')
       .sort({ date: -1, time: -1 });
 
-    // Update statuses for each meeting
     for (const meeting of meetings) {
       meeting.updateStatus();
       await meeting.save();
     }
 
-    // Categorize meetings
     const upcoming = meetings.filter(m => m.status === 'scheduled' && m.isUpcoming);
     const live = meetings.filter(m => m.status === 'live' || m.isLive);
     const completed = meetings.filter(m => m.status === 'completed' || m.isCompleted);
@@ -389,7 +379,6 @@ exports.getMeetingDetails = async (req, res) => {
       });
     }
 
-    // Check if user is authorized to view this meeting
     const userId = req.user.id;
     const userRole = req.user.role;
     const studentIdStr = meeting.studentId._id.toString();
@@ -409,7 +398,6 @@ exports.getMeetingDetails = async (req, res) => {
       });
     }
 
-    // Update status
     meeting.updateStatus();
     await meeting.save();
 
@@ -444,7 +432,6 @@ exports.getMeetingJoinDetails = async (req, res) => {
       });
     }
 
-    // Check if user can join
     const userId = req.user.id;
     const userRole = req.user.role;
     const canJoin = meeting.canJoin(userId, userRole);
@@ -456,7 +443,6 @@ exports.getMeetingJoinDetails = async (req, res) => {
       });
     }
 
-    // Update status to live if it's scheduled and within time
     const now = new Date();
     const meetingDateTime = new Date(meeting.date);
     const [hours, minutes] = meeting.time.split(':');
@@ -469,7 +455,6 @@ exports.getMeetingJoinDetails = async (req, res) => {
       await meeting.save();
     }
 
-    // Check again after status update
     if (meeting.status === 'cancelled' || meeting.status === 'completed' || meeting.status === 'missed') {
       return res.status(403).json({
         success: false,
@@ -519,7 +504,6 @@ exports.cancelMeeting = async (req, res) => {
       });
     }
 
-    // Check if user is authorized to cancel
     const userId = req.user.id;
     const facultyIdStr = meeting.facultyId.toString();
 
@@ -530,7 +514,6 @@ exports.cancelMeeting = async (req, res) => {
       });
     }
 
-    // Check if meeting can be cancelled
     if (meeting.status === 'completed' || meeting.status === 'missed') {
       return res.status(400).json({
         success: false,
@@ -538,12 +521,10 @@ exports.cancelMeeting = async (req, res) => {
       });
     }
 
-    // Update meeting status
     meeting.status = 'cancelled';
     meeting.notes = reason || meeting.notes || 'Meeting cancelled';
     await meeting.save();
 
-    // If this is a recurring meeting, also cancel future meetings
     if (meeting.isRecurring && meeting.parentMeetingId) {
       await Meeting.updateMany(
         { 
@@ -591,7 +572,6 @@ exports.completeMeeting = async (req, res) => {
       });
     }
 
-    // Check if user is authorized
     const userId = req.user.id;
     const facultyIdStr = meeting.facultyId.toString();
 
@@ -602,7 +582,6 @@ exports.completeMeeting = async (req, res) => {
       });
     }
 
-    // Update meeting
     meeting.status = 'completed';
     meeting.endTime = new Date();
     if (meeting.startTime) {
@@ -646,7 +625,6 @@ exports.rescheduleMeeting = async (req, res) => {
       });
     }
 
-    // Check if user is authorized
     const userId = req.user.id;
     const facultyIdStr = meeting.facultyId.toString();
 
@@ -657,7 +635,6 @@ exports.rescheduleMeeting = async (req, res) => {
       });
     }
 
-    // Validate new date
     if (date) {
       const newDate = new Date(date);
       const [hours, minutes] = (time || meeting.time).split(':');
@@ -671,12 +648,10 @@ exports.rescheduleMeeting = async (req, res) => {
       }
     }
 
-    // Update meeting
     if (date) meeting.date = new Date(date);
     if (time) meeting.time = time;
     if (duration) meeting.duration = duration;
     
-    // Reset status if it was cancelled or missed
     if (meeting.status === 'cancelled' || meeting.status === 'missed') {
       meeting.status = 'scheduled';
     }
@@ -706,7 +681,6 @@ exports.getUpcomingStudentMeetings = async (req, res) => {
   try {
     const { studentId } = req.params;
 
-    // Check authorization
     if (req.user.id !== studentId && req.user.role !== 'admin') {
       return res.status(403).json({
         success: false,
@@ -727,7 +701,6 @@ exports.getUpcomingStudentMeetings = async (req, res) => {
       .sort({ date: 1, time: 1 })
       .limit(10);
 
-    // Update statuses
     for (const meeting of meetings) {
       meeting.updateStatus();
       await meeting.save();
@@ -766,7 +739,6 @@ exports.getMeetingStats = async (req, res) => {
 
     const meetings = await Meeting.find(query);
 
-    // Update statuses
     for (const meeting of meetings) {
       meeting.updateStatus();
       await meeting.save();
@@ -819,7 +791,7 @@ exports.getMeetingStats = async (req, res) => {
 exports.sendMeetingReminders = async (req, res) => {
   try {
     const now = new Date();
-    const reminderTime = new Date(now.getTime() + 30 * 60000); // 30 minutes from now
+    const reminderTime = new Date(now.getTime() + 30 * 60000);
 
     const meetings = await Meeting.find({
       status: 'scheduled',
@@ -830,9 +802,6 @@ exports.sendMeetingReminders = async (req, res) => {
       .populate('facultyId', 'fullName email');
 
     for (const meeting of meetings) {
-      // Send reminder logic here
-      // This could integrate with email service, SMS, or push notifications
-      
       meeting.reminderSent = true;
       meeting.reminderSentAt = now;
       await meeting.save();
@@ -849,6 +818,70 @@ exports.sendMeetingReminders = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to send reminders',
+      error: error.message
+    });
+  }
+};
+
+// @desc    End a meeting (mark as completed immediately)
+// @route   PUT /api/meetings/:meetingId/end
+// @access  Private (Faculty only)
+exports.endMeeting = async (req, res) => {
+  try {
+    const { meetingId } = req.params;
+
+    const meeting = await Meeting.findById(meetingId);
+
+    if (!meeting) {
+      return res.status(404).json({
+        success: false,
+        message: 'Meeting not found'
+      });
+    }
+
+    // Check if user is authorized
+    const userId = req.user.id;
+    const facultyIdStr = meeting.facultyId.toString();
+
+    if (userId !== facultyIdStr && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the faculty can end this meeting'
+      });
+    }
+
+    // Prevent ending already-ended meetings
+    if (meeting.status === 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Meeting is already completed'
+      });
+    }
+
+    if (meeting.status === 'cancelled') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot end a cancelled meeting'
+      });
+    }
+
+    // ✅ Use the model method (handles all edge cases)
+    meeting.endMeeting(userId);
+    await meeting.save();
+
+    console.log(`✅ Meeting ended: ${meeting._id} by faculty ${userId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Meeting ended successfully',
+      data: meeting
+    });
+
+  } catch (error) {
+    console.error('Error ending meeting:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to end meeting',
       error: error.message
     });
   }

@@ -94,7 +94,17 @@ const FacultyInterventions = () => {
   const fetchFacultyData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const facultyId = localStorage.getItem('userId');
+      const userData = localStorage.getItem('user');
+      let facultyId = null;
+      
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          facultyId = user._id || user.id;
+        } catch (e) {
+          console.error('Failed to parse user:', e);
+        }
+      }
       
       if (!token || !facultyId) return;
 
@@ -207,7 +217,7 @@ const FacultyInterventions = () => {
     }
   };
 
-  // Fetch predictions for students
+  // ✅ UPDATED: Fetch predictions for students — NOW SENDS ALL 11 FEATURES
   const fetchPredictions = async (studentList) => {
     try {
       const token = localStorage.getItem('token');
@@ -219,34 +229,65 @@ const FacultyInterventions = () => {
       for (const student of studentList) {
         const id = student._id || student.id;
         try {
+          // Fetch student activities first
           const activitiesResponse = await fetch(`${API_BASE_URL}/api/student-activities?studentId=${id}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
           });
 
-          let attendance = 0, gpa = 0, backlogs = 0, assignmentCompletion = 0, engagement = 'Medium';
+          // Default all 11 features
+          let age = 20;
+          let attendance = 0;
+          let gpa = 0;
+          let failedSubjects = 0;
+          let backlogs = 0;
+          let assignmentCompletion = 0;
+          let internalAssessmentMarks = 0;
+          let examScore = 0;
+          let lmsActivityScore = 0;
+          let feePending = 0;
+          let counselingSessions = 0;
+          let hasData = false;
           
           if (activitiesResponse.ok) {
             const activitiesData = await activitiesResponse.json();
             if (activitiesData.data && activitiesData.data.activities && activitiesData.data.activities.length > 0) {
               const latest = activitiesData.data.activities[0];
+              // ✅ ALL 11 FEATURES
+              age = latest.age || 20;
               attendance = latest.attendancePercentage || 0;
               gpa = latest.gpa || 0;
+              failedSubjects = latest.failedSubjects || 0;
               backlogs = latest.backlogs || 0;
               assignmentCompletion = latest.assignmentCompletion || 0;
-              engagement = latest.engagement || 'Medium';
+              internalAssessmentMarks = latest.internalAssessmentMarks || 0;
+              examScore = latest.examScore || 0;
+              lmsActivityScore = latest.lmsActivityScore || 0;
+              feePending = latest.feePending || 0;
+              counselingSessions = latest.counselingSessions || 0;
+              hasData = true;
             }
           }
 
-          if (attendance > 0 || gpa > 0 || backlogs > 0 || assignmentCompletion > 0) {
+          // Only predict if student has data
+          if (hasData) {
+            // ✅ ALL 11 FEATURES PAYLOAD
             const payload = {
-              attendance: attendance,
-              gpa: gpa,
-              backlogs: backlogs,
-              assignment_completion: assignmentCompletion,
-              engagement: engagement
+              age: parseInt(age) || 20,
+              attendance_percentage: parseFloat(attendance) || 0,
+              current_gpa: parseFloat(gpa) || 0,
+              failed_subjects: parseInt(failedSubjects) || 0,
+              backlogs: parseInt(backlogs) || 0,
+              assignment_completion_percentage: parseFloat(assignmentCompletion) || 0,
+              internal_assessment_marks: parseFloat(internalAssessmentMarks) || 0,
+              exam_score: parseFloat(examScore) || 0,
+              lms_activity_score: parseFloat(lmsActivityScore) || 0,
+              fee_pending: parseInt(feePending) || 0,
+              counseling_sessions: parseInt(counselingSessions) || 0
             };
+
+            console.log(`📤 Predicting for ${student.name}:`, payload);
 
             const predictResponse = await fetch(`${API_BASE_URL}/api/predict`, {
               method: 'POST',
@@ -259,27 +300,32 @@ const FacultyInterventions = () => {
 
             if (predictResponse.ok) {
               const predictData = await predictResponse.json();
-              if (predictData.success) {
-                const riskValue = predictData.data.risk_level || predictData.data.prediction || 'Low';
-                const riskLevel = getRiskLevel(riskValue);
-                
-                results[id] = {
-                  prediction: riskLevel,
-                  probability: predictData.data.probability || 0,
-                  riskLevel: riskLevel,
-                  stats: {
-                    attendance,
-                    gpa,
-                    backlogs,
-                    assignmentCompletion,
-                    engagement
-                  }
-                };
+              const responseData = predictData.data || predictData;
+              const riskValue = responseData.risk_level || responseData.prediction || 'Low';
+              const riskLevel = getRiskLevel(riskValue);
+              
+              results[id] = {
+                prediction: riskLevel,
+                probability: responseData.probability || 0,
+                riskLevel: riskLevel,
+                stats: {
+                  attendance,
+                  gpa,
+                  failedSubjects,
+                  backlogs,
+                  assignmentCompletion,
+                  internalAssessmentMarks,
+                  examScore,
+                  lmsActivityScore,
+                  feePending,
+                  counselingSessions,
+                  age
+                }
+              };
 
-                if (riskLevel === 'High') highCount++;
-                else if (riskLevel === 'Medium') mediumCount++;
-                else if (riskLevel === 'Low') lowCount++;
-              }
+              if (riskLevel === 'High') highCount++;
+              else if (riskLevel === 'Medium') mediumCount++;
+              else if (riskLevel === 'Low') lowCount++;
             }
           }
         } catch (error) {
@@ -322,7 +368,7 @@ const FacultyInterventions = () => {
     fetchStudents();
   }, []);
 
-  // Get filtered students - ONLY show students with Active interventions (have counseling history)
+  // Get filtered students - ONLY show students with Active interventions
   const getFilteredStudents = () => {
     let filtered = students.filter(s => {
       const id = s._id || s.id;
@@ -405,7 +451,6 @@ const FacultyInterventions = () => {
         return;
       }
 
-      // Validate form
       if (!meetingData.title.trim()) {
         setMeetingError('Please enter a meeting title');
         setSchedulingMeeting(false);
@@ -424,7 +469,6 @@ const FacultyInterventions = () => {
         return;
       }
 
-      // Create meeting payload
       const meetingPayload = {
         title: meetingData.title,
         description: meetingData.description || 'Intervention counseling session',
@@ -434,7 +478,7 @@ const FacultyInterventions = () => {
         studentId: meetingData.studentId,
         studentName: meetingData.studentName,
         studentEmail: meetingData.studentEmail,
-        meetingType: 'intervention'  // Changed from 'type' to 'meetingType'
+        meetingType: 'intervention'
       };
 
       console.log('Sending meeting payload:', meetingPayload);
@@ -455,7 +499,6 @@ const FacultyInterventions = () => {
         setTimeout(() => {
           setShowScheduleModal(false);
           setMeetingSuccess(false);
-          // Refresh data
           fetchStudents();
         }, 2000);
       } else {
@@ -655,7 +698,7 @@ const FacultyInterventions = () => {
         )}
       </div>
 
-      {/* Student Detail Modal (click on row) */}
+      {/* Student Detail Modal */}
       {showStudentModal && selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-fadeIn">
@@ -681,7 +724,6 @@ const FacultyInterventions = () => {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Student Information */}
               <div>
                 <h3 className="text-sm font-semibold text-[#080C68] mb-3 flex items-center gap-2">
                   <Users size={16} className="text-[#00A9E0]" />
@@ -770,7 +812,6 @@ const FacultyInterventions = () => {
                 </div>
               )}
 
-              {/* Schedule Meeting Button */}
               <div className="border-t border-gray-100 pt-4">
                 <button
                   onClick={() => {
@@ -788,7 +829,7 @@ const FacultyInterventions = () => {
         </div>
       )}
 
-      {/* Intervention Plans Modal (click on notes icon) */}
+      {/* Intervention Plans Modal */}
       {showInterventionModal && selectedStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto animate-fadeIn">
@@ -814,7 +855,6 @@ const FacultyInterventions = () => {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* Quick Student Info */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 rounded-lg p-4">
                 <div>
                   <p className="text-xs text-gray-500">Name</p>
@@ -842,7 +882,6 @@ const FacultyInterventions = () => {
                 </div>
               </div>
 
-              {/* Intervention Plans */}
               <div>
                 <h3 className="text-sm font-semibold text-[#080C68] mb-3 flex items-center gap-2">
                   <HandHelping size={16} className="text-purple-600" />
@@ -874,7 +913,6 @@ const FacultyInterventions = () => {
                 )}
               </div>
 
-              {/* Schedule Meeting Button */}
               <div className="border-t border-gray-100 pt-4">
                 <button
                   onClick={() => {
@@ -933,7 +971,6 @@ const FacultyInterventions = () => {
                 </div>
               ) : (
                 <form onSubmit={handleScheduleMeetingSubmit} className="space-y-4">
-                  {/* Meeting Title */}
                   <div>
                     <label className="block text-sm font-medium text-[#080C68] mb-1">
                       Meeting Title <span className="text-red-500">*</span>
@@ -948,7 +985,6 @@ const FacultyInterventions = () => {
                     />
                   </div>
 
-                  {/* Description */}
                   <div>
                     <label className="block text-sm font-medium text-[#080C68] mb-1">
                       Description
@@ -962,7 +998,6 @@ const FacultyInterventions = () => {
                     />
                   </div>
 
-                  {/* Date and Time */}
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-[#080C68] mb-1">
@@ -991,7 +1026,6 @@ const FacultyInterventions = () => {
                     </div>
                   </div>
 
-                  {/* Duration */}
                   <div>
                     <label className="block text-sm font-medium text-[#080C68] mb-1">
                       Duration <span className="text-red-500">*</span>
@@ -1011,14 +1045,12 @@ const FacultyInterventions = () => {
                     </select>
                   </div>
 
-                  {/* Error Message */}
                   {meetingError && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
                       {meetingError}
                     </div>
                   )}
 
-                  {/* Student Info (Read-only) */}
                   <div className="bg-gray-50 rounded-lg p-3">
                     <p className="text-xs text-gray-500">Meeting with</p>
                     <p className="font-medium text-[#080C68]">{selectedStudent.name}</p>
@@ -1026,7 +1058,6 @@ const FacultyInterventions = () => {
                     <p className="text-xs text-gray-500">{selectedStudent.email}</p>
                   </div>
 
-                  {/* Submit Button */}
                   <button
                     type="submit"
                     disabled={schedulingMeeting}
@@ -1051,7 +1082,6 @@ const FacultyInterventions = () => {
         </div>
       )}
 
-      {/* CSS for animations */}
       <style jsx>{`
         @keyframes fadeIn {
           from { opacity: 0; transform: scale(0.95); }

@@ -93,6 +93,13 @@ const meetingSchema = new mongoose.Schema({
   endTime: {
     type: Date
   },
+  endedAt: {
+    type: Date
+  },
+  endedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Faculty'
+  },
   actualDuration: {
     type: Number
   },
@@ -273,6 +280,34 @@ meetingSchema.methods.isJoinable = function() {
          this.status !== 'missed' &&
          now >= joinWindowStart && 
          now <= joinWindowEnd;
+};
+
+// ✅ NEW: Method to end a meeting (marks as completed immediately)
+meetingSchema.methods.endMeeting = function(endedByUserId = null) {
+  const now = new Date();
+
+  // Set status to completed
+  this.status = 'completed';
+  this.endTime = now;
+  this.endedAt = now;
+
+  // Store who ended it (optional)
+  if (endedByUserId) {
+    this.endedBy = endedByUserId;
+  }
+
+  // Calculate actual duration if startTime exists
+  if (this.startTime) {
+    this.actualDuration = Math.round((now - this.startTime) / 60000);
+  } else {
+    // If no startTime (never marked live), calculate from scheduled start
+    const scheduledStart = this.getMeetingDateTime();
+    this.actualDuration = Math.round((now - scheduledStart) / 60000);
+    // Ensure non-negative
+    if (this.actualDuration < 0) this.actualDuration = 0;
+  }
+
+  return this;
 };
 
 // Ensure virtuals are included in JSON output

@@ -48,6 +48,9 @@ const Students = () => {
   const [bulkPreview, setBulkPreview] = useState([]);
   const [bulkErrors, setBulkErrors] = useState([]);
 
+  // Branch filter state for Assign Faculty modal
+  const [assignBranchFilter, setAssignBranchFilter] = useState('');
+
   const [formData, setFormData] = useState({
     name: '',
     usn: '',
@@ -402,6 +405,7 @@ const Students = () => {
         ));
         setShowAssignModal(false);
         setSelectedFaculty('');
+        setAssignBranchFilter('');
         toast.success('✅ Faculty assigned successfully!', toastConfig);
       } else {
         toast.error(data.message || 'Failed to assign faculty', toastConfig);
@@ -436,10 +440,12 @@ const Students = () => {
     setEditErrors({});
   };
 
-  // Open assign modal
+  // ✅ UPDATED: Open assign modal — default filter is "All Branches"
   const handleOpenAssign = (student) => {
     setAssigningStudent(student);
     setSelectedFaculty(student.assignedFaculty?._id || '');
+    // ✅ Always default to "All Branches" (empty string = all)
+    setAssignBranchFilter('');
     setShowAssignModal(true);
   };
 
@@ -471,7 +477,6 @@ const Students = () => {
   // BULK UPLOAD CSV FUNCTIONS
   // ============================================
 
-  // Handle CSV file selection
   const handleBulkFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -494,12 +499,10 @@ const Students = () => {
         return;
       }
 
-      // Parse headers
       const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, '').toLowerCase());
       
       console.log('📄 CSV Headers:', headers);
 
-      // Check required columns
       const requiredColumns = ['name', 'usn', 'email', 'phone', 'course', 'branch', 'semester'];
       const missingColumns = requiredColumns.filter(col => !headers.includes(col));
       
@@ -509,12 +512,10 @@ const Students = () => {
         return;
       }
 
-      // Parse rows
       const students = [];
       const errors = [];
 
       for (let i = 1; i < lines.length; i++) {
-        // Simple CSV parser (handles quoted values)
         const values = [];
         let current = '';
         let inQuotes = false;
@@ -531,13 +532,11 @@ const Students = () => {
         }
         values.push(current.trim());
 
-        // Map row to student object
         const student = {};
         headers.forEach((header, idx) => {
           student[header] = values[idx] || '';
         });
 
-        // Validate row
         const rowErrors = [];
         if (!student.name) rowErrors.push('Name is required');
         if (!student.usn) rowErrors.push('USN is required');
@@ -551,7 +550,6 @@ const Students = () => {
         if (!student.branch) rowErrors.push('Branch is required');
         if (!student.semester) rowErrors.push('Semester is required');
 
-        // Set default password if not provided
         if (!student.password) {
           student.password = 'password123';
         }
@@ -589,7 +587,6 @@ const Students = () => {
     }
   };
 
-  // Handle bulk upload
   const handleBulkUpload = async () => {
     if (!bulkPreview || bulkPreview.length === 0) {
       toast.error('No students to upload', toastConfig);
@@ -622,7 +619,6 @@ const Students = () => {
         return;
       }
 
-      // Build payload
       const studentsPayload = validStudents.map(s => ({
         name: s.name,
         usn: s.usn,
@@ -637,7 +633,6 @@ const Students = () => {
 
       console.log('📤 Bulk uploading students:', studentsPayload.length);
 
-      // Try bulk endpoint first, fallback to individual
       let response;
       let data;
 
@@ -656,7 +651,6 @@ const Students = () => {
         response = null;
       }
 
-      // If bulk endpoint doesn't exist (404), fall back to individual uploads
       if (!response || response.status === 404) {
         console.log('📤 Uploading students individually...');
         
@@ -703,7 +697,6 @@ const Students = () => {
         }
 
       } else if (response.ok) {
-        // Bulk endpoint succeeded
         const uploadedStudents = data.data?.students || data.data || [];
         setStudents([...uploadedStudents, ...students]);
         
@@ -718,7 +711,6 @@ const Students = () => {
         return;
       }
 
-      // Close modal and reset
       setShowBulkUploadModal(false);
       setBulkFile(null);
       setBulkPreview([]);
@@ -732,7 +724,6 @@ const Students = () => {
     }
   };
 
-  // Open bulk upload modal
   const openBulkUploadModal = () => {
     setBulkFile(null);
     setBulkPreview([]);
@@ -757,6 +748,18 @@ const Students = () => {
     const faculty = facultyList.find(f => f._id === facultyId);
     return faculty ? faculty.fullName : 'Not Assigned';
   };
+
+  // Get unique branches from faculty list for the assign filter
+  const facultyBranches = [...new Set(
+    facultyList
+      .map(f => f.department)
+      .filter(Boolean)
+  )].sort();
+
+  // Filter faculty by selected branch
+  const filteredFacultyForAssign = assignBranchFilter
+    ? facultyList.filter(f => f.department === assignBranchFilter)
+    : facultyList;
 
   // Engineering Branches
   const engineeringBranches = [
@@ -945,7 +948,6 @@ const Students = () => {
       {showBulkUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
               <div>
                 <h2 className="text-2xl font-bold text-[#080C68] flex items-center gap-2">
@@ -963,7 +965,6 @@ const Students = () => {
             </div>
 
             <div className="p-6 space-y-6">
-              {/* File Upload */}
               <div>
                 <label className="block text-sm font-semibold text-[#080C68] mb-2">
                   Select CSV File
@@ -988,7 +989,6 @@ const Students = () => {
                 </div>
               </div>
 
-              {/* Preview */}
               {bulkPreview.length > 0 && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
@@ -1073,7 +1073,6 @@ const Students = () => {
                 </div>
               )}
 
-              {/* Action Buttons */}
               <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-gray-100">
                 <button
                   type="button"
@@ -1111,7 +1110,6 @@ const Students = () => {
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-100 sticky top-0 bg-white z-10 rounded-t-2xl">
               <div>
                 <h2 className="text-2xl font-bold text-[#080C68]">Register Student</h2>
@@ -1125,10 +1123,8 @@ const Students = () => {
               </button>
             </div>
 
-            {/* Form */}
             <form onSubmit={handleRegister} className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                {/* Personal Information */}
                 <div className="md:col-span-2">
                   <h3 className="text-sm font-semibold text-[#080C68] mb-3 flex items-center gap-2">
                     <User size={16} className="text-[#00A9E0]" />
@@ -1204,7 +1200,6 @@ const Students = () => {
                   {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
                 </div>
 
-                {/* Academic Information */}
                 <div className="md:col-span-2 mt-2">
                   <h3 className="text-sm font-semibold text-[#080C68] mb-3 flex items-center gap-2">
                     <BookOpen size={16} className="text-[#00A9E0]" />
@@ -1293,7 +1288,6 @@ const Students = () => {
                   {errors.semester && <p className="text-red-500 text-xs mt-1">{errors.semester}</p>}
                 </div>
 
-                {/* Password Section */}
                 <div className="md:col-span-2 mt-2">
                   <h3 className="text-sm font-semibold text-[#080C68] mb-3 flex items-center gap-2">
                     <Lock size={16} className="text-[#00A9E0]" />
@@ -1342,7 +1336,6 @@ const Students = () => {
                 </div>
               </div>
 
-              {/* Buttons */}
               <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-8 pt-4 border-t border-gray-100">
                 <button
                   type="button"
@@ -1617,7 +1610,9 @@ const Students = () => {
         </div>
       )}
 
-      {/* Assign Faculty Modal */}
+      {/* ============================================ */}
+      {/* ASSIGN FACULTY MODAL — WITH BRANCH FILTER */}
+      {/* ============================================ */}
       {showAssignModal && assigningStudent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
@@ -1635,6 +1630,27 @@ const Students = () => {
             </div>
 
             <div className="p-6">
+              {/* Branch Filter */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-[#080C68] mb-1.5">
+                  Filter by Branch
+                </label>
+                <select
+                  value={assignBranchFilter}
+                  onChange={(e) => {
+                    setAssignBranchFilter(e.target.value);
+                    setSelectedFaculty(''); // Reset faculty when branch changes
+                  }}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors"
+                >
+                  <option value="">All Branches</option>
+                  {facultyBranches.map((branch) => (
+                    <option key={branch} value={branch}>{branch}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Faculty Selection */}
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-[#080C68] mb-1.5">
                   Select Faculty <span className="text-red-500">*</span>
@@ -1642,15 +1658,25 @@ const Students = () => {
                 <select
                   value={selectedFaculty}
                   onChange={(e) => setSelectedFaculty(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors"
+                  disabled={filteredFacultyForAssign.length === 0}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors disabled:bg-gray-50 disabled:text-gray-400"
                 >
-                  <option value="">Select a faculty member</option>
-                  {facultyList.map((faculty) => (
+                  <option value="">
+                    {filteredFacultyForAssign.length === 0 
+                      ? 'No faculty in this branch' 
+                      : 'Select a faculty member'}
+                  </option>
+                  {filteredFacultyForAssign.map((faculty) => (
                     <option key={faculty._id} value={faculty._id}>
                       {faculty.fullName} - {faculty.department}
                     </option>
                   ))}
                 </select>
+                {assignBranchFilter && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Showing {filteredFacultyForAssign.length} faculty member(s) from <span className="font-medium">{assignBranchFilter}</span>
+                  </p>
+                )}
               </div>
 
               <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
@@ -1664,7 +1690,7 @@ const Students = () => {
                 <button
                   type="button"
                   onClick={handleAssignFaculty}
-                  disabled={loading}
+                  disabled={loading || !selectedFaculty}
                   className="w-full sm:w-auto px-8 py-3 bg-[#00A9E0] hover:bg-[#008FC2] text-white rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
                 >
                   {loading && <Loader2 size={18} className="animate-spin" />}

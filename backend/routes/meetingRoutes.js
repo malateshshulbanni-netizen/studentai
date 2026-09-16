@@ -72,6 +72,13 @@ router.put(
   meetingController.completeMeeting
 );
 
+// End meeting - Only faculty (marks as completed immediately)
+router.put(
+  '/:meetingId/end',
+  facultyOnly,
+  meetingController.endMeeting
+);
+
 // Reschedule meeting - Only faculty
 router.put(
   '/:meetingId/reschedule',

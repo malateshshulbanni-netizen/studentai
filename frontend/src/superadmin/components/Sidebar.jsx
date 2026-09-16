@@ -7,7 +7,6 @@ import {
   Brain, 
   BarChart3, 
   FileText, 
-  Settings,
   X,
   ChevronLeft,
   ChevronRight
@@ -21,7 +20,6 @@ const Sidebar = ({ isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
     { path: '/super-admin/models', icon: Brain, label: 'ML Models' },
     { path: '/super-admin/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/super-admin/audit-logs', icon: FileText, label: 'Audit Logs' },
-    { path: '/super-admin/settings', icon: Settings, label: 'Settings' },
   ];
 
   const toggleCollapse = () => {

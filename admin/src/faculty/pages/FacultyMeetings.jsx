@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Clock, Loader2, RefreshCw, X, CheckCircle, Maximize2, Minimize2 } from 'lucide-react';
+import { Video, Clock, Loader2, RefreshCw, X, CheckCircle, Maximize2, Minimize2, PhoneOff } from 'lucide-react';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import API_BASE_URL from '../../config/api';
 
 const FacultyMeetings = () => {
@@ -21,6 +23,24 @@ const FacultyMeetings = () => {
   const [showJitsi, setShowJitsi] = useState(false);
   const [currentMeeting, setCurrentMeeting] = useState(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [endingMeeting, setEndingMeeting] = useState(false);
+
+  // Toast configuration
+  const toastConfig = {
+    position: "top-right",
+    autoClose: 3000,
+    hideProgressBar: true,
+    closeOnClick: true,
+    pauseOnHover: true,
+    draggable: true,
+    style: {
+      width: '320px',
+      minHeight: '60px',
+      padding: '10px 16px',
+      fontSize: '14px',
+      borderRadius: '8px',
+    },
+  };
 
   // Fetch meetings
   const fetchMeetings = async () => {
@@ -28,8 +48,23 @@ const FacultyMeetings = () => {
     setError(null);
     try {
       const token = localStorage.getItem('token');
-      const facultyId = localStorage.getItem('userId');
       
+      const userData = localStorage.getItem('user');
+      let facultyId = null;
+      
+      if (userData) {
+        try {
+          const user = JSON.parse(userData);
+          facultyId = user._id || user.id;
+        } catch (e) {
+          console.error('Failed to parse user data:', e);
+        }
+      }
+
+      console.log('📋 [FacultyMeetings] Token exists:', !!token);
+      console.log('📋 [FacultyMeetings] User data:', userData);
+      console.log('📋 [FacultyMeetings] Faculty ID:', facultyId);
+
       if (!token || !facultyId) {
         setError('You must be logged in to view meetings');
         setLoading(false);
@@ -39,20 +74,26 @@ const FacultyMeetings = () => {
       const timestamp = new Date().getTime();
       const url = `${API_BASE_URL}/api/meetings/faculty/${facultyId}?_=${timestamp}`;
 
+      console.log('📤 [FacultyMeetings] Fetching:', url);
+
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
 
+      console.log('📥 [FacultyMeetings] Status:', response.status);
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
+      console.log('📥 [FacultyMeetings] Full response:', data);
       
       if (data.success) {
         const allMeetings = data.data.all || [];
+        console.log(`✅ [FacultyMeetings] Found ${allMeetings.length} meetings`);
         setMeetings(allMeetings);
         setStats(data.data.summary || {
           total: 0,
@@ -65,7 +106,7 @@ const FacultyMeetings = () => {
         setError(data.message || 'Failed to load meetings');
       }
     } catch (error) {
-      console.error('Error fetching meetings:', error);
+      console.error('❌ [FacultyMeetings] Error:', error);
       setError('Failed to load meetings. Please try again.');
     } finally {
       setLoading(false);
@@ -94,11 +135,71 @@ const FacultyMeetings = () => {
     }
   };
 
-  // Close Jitsi
+  // Close Jitsi (without ending meeting - just closes the window)
   const handleCloseJitsi = () => {
     setShowJitsi(false);
     setCurrentMeeting(null);
     setIsFullscreen(false);
+  };
+
+  // ✅ NEW: End Meeting — calls backend to mark meeting as completed
+  const handleEndMeeting = async () => {
+    if (!currentMeeting) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to end this meeting? All participants will be disconnected.'
+    );
+
+    if (!confirmed) return;
+
+    setEndingMeeting(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        toast.error('Authentication required', toastConfig);
+        setEndingMeeting(false);
+        return;
+      }
+
+      console.log('📤 [FacultyMeetings] Ending meeting:', currentMeeting._id);
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/meetings/${currentMeeting._id}/end`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            endedAt: new Date().toISOString()
+          })
+        }
+      );
+
+      const data = await response.json();
+      console.log('📥 [FacultyMeetings] End meeting response:', data);
+
+      if (response.ok) {
+        toast.success('✅ Meeting ended successfully', toastConfig);
+
+        // Close Jitsi modal
+        setShowJitsi(false);
+        setCurrentMeeting(null);
+        setIsFullscreen(false);
+
+        // Refresh meetings list to reflect new status
+        await fetchMeetings();
+      } else {
+        toast.error(data.message || 'Failed to end meeting', toastConfig);
+      }
+    } catch (err) {
+      console.error('❌ [FacultyMeetings] End meeting error:', err);
+      toast.error('Network error. Please try again.', toastConfig);
+    } finally {
+      setEndingMeeting(false);
+    }
   };
 
   // Toggle fullscreen
@@ -156,6 +257,27 @@ const FacultyMeetings = () => {
 
   return (
     <div className="p-6">
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={true}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        style={{ width: '320px' }}
+        toastStyle={{
+          minHeight: '60px',
+          padding: '10px 16px',
+          fontSize: '14px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+        }}
+      />
+
       {/* Jitsi Meet Modal */}
       {showJitsi && currentMeeting && (
         <div className={`fixed inset-0 z-50 bg-black ${isFullscreen ? 'w-full h-full' : 'p-4'}`}>
@@ -172,6 +294,26 @@ const FacultyMeetings = () => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                {/* ✅ NEW: End Meeting Button */}
+                <button
+                  onClick={handleEndMeeting}
+                  disabled={endingMeeting}
+                  className="flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors text-sm font-semibold disabled:opacity-60"
+                  title="End Meeting"
+                >
+                  {endingMeeting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span className="hidden sm:inline">Ending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <PhoneOff size={16} />
+                      <span className="hidden sm:inline">End Meeting</span>
+                    </>
+                  )}
+                </button>
+
                 <button
                   onClick={toggleFullscreen}
                   className="p-2 hover:bg-white/20 rounded-lg transition-colors"
@@ -182,6 +324,7 @@ const FacultyMeetings = () => {
                 <button
                   onClick={handleCloseJitsi}
                   className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                  title="Close (without ending)"
                 >
                   <X size={20} />
                 </button>
@@ -419,7 +562,6 @@ const FacultyMeetings = () => {
                 </div>
               </div>
 
-              {/* Join Button - Opens Jitsi in modal */}
               {(selectedMeeting.status === 'scheduled' || selectedMeeting.status === 'live') && (
                 <div className="border-t border-gray-100 pt-4">
                   <button

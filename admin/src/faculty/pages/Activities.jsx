@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Activity,
   Calendar,
@@ -30,10 +30,13 @@ import {
   Save,
   Edit,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Download,
+  Upload
 } from 'lucide-react';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import * as XLSX from 'xlsx';
 import API_BASE_URL from '../../config/api';
 
 const Activities = () => {
@@ -47,7 +50,22 @@ const Activities = () => {
   const [isSubmittingAll, setIsSubmittingAll] = useState(false);
   const [submittedStudents, setSubmittedStudents] = useState([]);
   const [isLoadingData, setIsLoadingData] = useState(false);
-  
+
+  // Download CSV modal state
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [downloadFilters, setDownloadFilters] = useState({
+    course: '',
+    semester: '',
+    branch: ''
+  });
+  const [downloading, setDownloading] = useState(false);
+
+  // Upload CSV state
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadPreview, setUploadPreview] = useState(null);
+  const fileInputRef = useRef(null);
+
   const [formData, setFormData] = useState({
     course: '',
     semester: '',
@@ -274,7 +292,6 @@ const Activities = () => {
         }
       };
       
-      // Auto-calculate attendance percentage
       if (field === 'totalClasses' || field === 'attendedClasses') {
         const total = field === 'totalClasses' ? Number(value) : prev[studentId]?.totalClasses || 0;
         const attended = field === 'attendedClasses' ? Number(value) : prev[studentId]?.attendedClasses || 0;
@@ -303,7 +320,6 @@ const Activities = () => {
           return;
         }
 
-        // Validate all 11 features
         if (stats.age < 17 || stats.age > 30) {
           errors.push(`${student.name}: Age must be between 17-30`);
         }
@@ -489,6 +505,371 @@ const Activities = () => {
     toast.success('Data refreshed successfully!', toastConfig);
   };
 
+  // ============================================================
+  // DOWNLOAD CSV
+  // ============================================================
+  const handleOpenDownloadModal = () => {
+    setDownloadFilters({
+      course: '',
+      semester: '',
+      branch: ''
+    });
+    setShowDownloadModal(true);
+  };
+
+  const handleDownloadCSV = async () => {
+    setDownloading(true);
+    
+    try {
+      let studentsToDownload = [...students];
+      
+      if (downloadFilters.course) {
+        studentsToDownload = studentsToDownload.filter(s => s.course === downloadFilters.course);
+      }
+      if (downloadFilters.semester) {
+        studentsToDownload = studentsToDownload.filter(s => s.semester === downloadFilters.semester);
+      }
+      if (downloadFilters.branch) {
+        studentsToDownload = studentsToDownload.filter(s => s.branch === downloadFilters.branch);
+      }
+      
+      if (studentsToDownload.length === 0) {
+        toast.warning('No students found for the selected filters', toastConfig);
+        setDownloading(false);
+        return;
+      }
+      
+      console.log(`📥 Downloading CSV for ${studentsToDownload.length} students`);
+      
+      const headers = [
+        'Student',
+        'USN',
+        'Age',
+        'Total Classes',
+        'Attended',
+        'Attendance %',
+        'GPA',
+        'Failed Subjects',
+        'Backlogs',
+        'Assignment %',
+        'Internal Marks',
+        'Exam Score',
+        'LMS Activity',
+        'Fee Pending',
+        'Counseling'
+      ];
+      
+      const rows = studentsToDownload.map(student => {
+        const id = student._id || student.id;
+        const stats = studentStats[id] || {
+          age: 20,
+          totalClasses: 20,
+          attendedClasses: 0,
+          attendance: 0,
+          gpa: 0,
+          failedSubjects: 0,
+          backlogs: 0,
+          assignmentCompletion: 0,
+          internalAssessmentMarks: 0,
+          examScore: 0,
+          lmsActivityScore: 0,
+          feePending: 0,
+          counselingSessions: 0
+        };
+        
+        const attendance = stats.totalClasses > 0
+          ? Math.round((stats.attendedClasses / stats.totalClasses) * 100)
+          : 0;
+        
+        return [
+          `"${(student.name || '').replace(/"/g, '""')}"`,
+          `"${(student.usn || '').replace(/"/g, '""')}"`,
+          stats.age || 20,
+          stats.totalClasses || 20,
+          stats.attendedClasses || 0,
+          attendance,
+          stats.gpa || 0,
+          stats.failedSubjects || 0,
+          stats.backlogs || 0,
+          stats.assignmentCompletion || 0,
+          stats.internalAssessmentMarks || 0,
+          stats.examScore || 0,
+          stats.lmsActivityScore || 0,
+          stats.feePending || 0,
+          stats.counselingSessions || 0
+        ];
+      });
+      
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      
+      const filterParts = [];
+      if (downloadFilters.course) filterParts.push(downloadFilters.course.replace(/[^a-z0-9]/gi, '_'));
+      if (downloadFilters.semester) filterParts.push(`Sem${downloadFilters.semester}`);
+      if (downloadFilters.branch) filterParts.push(downloadFilters.branch.replace(/[^a-z0-9]/gi, '_'));
+      
+      const filenameSuffix = filterParts.length > 0 ? `_${filterParts.join('_')}` : '_all';
+      link.href = url;
+      link.download = `student_activities${filenameSuffix}_${new Date().toISOString().split('T')[0]}.csv`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success(`✅ Downloaded CSV with ${studentsToDownload.length} students!`, toastConfig);
+      setShowDownloadModal(false);
+      
+    } catch (error) {
+      console.error('❌ Download CSV error:', error);
+      toast.error('Failed to download CSV. Please try again.', toastConfig);
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  // ============================================================
+  // UPLOAD CSV / XLSX  (only touches matched students)
+  // ============================================================
+  const handleOpenUploadModal = () => {
+    setUploadPreview(null);
+    setShowUploadModal(true);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const parseCSV = (text) => {
+    const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+    if (lines.length < 2) return [];
+
+    const parseLine = (line) => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          result.push(current);
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current);
+      return result.map(v => v.trim());
+    };
+
+    const headers = parseLine(lines[0]);
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const values = parseLine(lines[i]);
+      const row = {};
+      headers.forEach((header, idx) => {
+        row[header] = values[idx] !== undefined ? values[idx] : '';
+      });
+      rows.push(row);
+    }
+    return rows;
+  };
+
+  // Common: process parsed rows (matching students + preview)
+  const processParsedRows = (rows) => {
+    if (!rows || rows.length === 0) {
+      toast.error('File is empty or invalid', toastConfig);
+      return;
+    }
+
+    const matchedRows = [];
+    const unmatchedRows = [];
+
+    rows.forEach(row => {
+      // Handle column-name variations
+      const getVal = (keys) => {
+        for (const k of keys) {
+          if (row[k] !== undefined && row[k] !== null && row[k] !== '') {
+            return row[k];
+          }
+        }
+        return '';
+      };
+
+      const usn = getVal(['USN', 'Usn', 'usn', 'USN ', ' USN']).toString().trim();
+      const name = getVal(['Student', 'student', 'Name', 'name', 'STUDENT']).toString().trim();
+
+      const student = students.find(s => {
+        const sUsn = (s.usn || '').toString().trim();
+        const sName = (s.name || '').toString().trim();
+        return (usn && sUsn === usn) || (name && sName.toLowerCase() === name.toLowerCase());
+      });
+
+      if (student) {
+        const num = (val, fallback = 0) => {
+          const n = parseFloat(val);
+          return isNaN(n) ? fallback : n;
+        };
+
+        const totalClasses = num(getVal(['Total Classes', 'TotalClasses', 'total classes']), 20);
+        const attendedClasses = num(getVal(['Attended', 'Attended Classes', 'attended']), 0);
+        const attendance = totalClasses > 0
+          ? Math.round((attendedClasses / totalClasses) * 100)
+          : 0;
+
+        let feePending = 0;
+        const feeVal = getVal(['Fee Pending', 'FeePending', 'fee pending', 'Fee']).toString().trim().toLowerCase();
+        if (feeVal === 'yes' || feeVal === '1' || feeVal === 'true' || feeVal === 'y') {
+          feePending = 1;
+        }
+
+        const parsedStats = {
+          age: num(getVal(['Age', 'age']), 20),
+          totalClasses,
+          attendedClasses,
+          attendance,
+          gpa: num(getVal(['GPA', 'gpa', 'Gpa']), 0),
+          failedSubjects: num(getVal(['Failed Subjects', 'FailedSubjects', 'failed subjects']), 0),
+          backlogs: num(getVal(['Backlogs', 'backlogs']), 0),
+          assignmentCompletion: num(getVal(['Assignment %', 'Assignment%', 'Assignment', 'assignment %']), 0),
+          internalAssessmentMarks: num(getVal(['Internal Marks', 'InternalMarks', 'internal marks']), 0),
+          examScore: num(getVal(['Exam Score', 'ExamScore', 'exam score']), 0),
+          lmsActivityScore: num(getVal(['LMS Activity', 'LMSActivity', 'lms activity']), 0),
+          feePending,
+          counselingSessions: num(getVal(['Counseling', 'Counseling Sessions', 'counseling']), 0),
+          status: 'Draft'
+        };
+
+        matchedRows.push({ student, parsedStats });
+      } else {
+        unmatchedRows.push({ name: name || usn || 'Unknown' });
+      }
+    });
+
+    if (matchedRows.length === 0) {
+      toast.error('No students in the file matched any student in the system', toastConfig);
+      setUploadPreview({ matched: [], unmatched: unmatchedRows });
+      return;
+    }
+
+    setUploadPreview({ matched: matchedRows, unmatched: unmatchedRows });
+    toast.success(`Matched ${matchedRows.length} student(s) from file`, toastConfig);
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileName = file.name.toLowerCase();
+    const isCSV = fileName.endsWith('.csv');
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
+
+    if (!isCSV && !isExcel) {
+      toast.error('Please select a .csv, .xlsx, or .xls file', toastConfig);
+      return;
+    }
+
+    // ============ CSV ============
+    if (isCSV) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const rows = parseCSV(event.target.result);
+          processParsedRows(rows);
+        } catch (err) {
+          console.error('❌ CSV parse error:', err);
+          toast.error('Failed to parse CSV file', toastConfig);
+        }
+      };
+      reader.readAsText(file);
+      return;
+    }
+
+    // ============ XLSX / XLS ============
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const data = new Uint8Array(event.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+
+          // Use the first sheet
+          const firstSheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[firstSheetName];
+
+          // Convert to JSON (header row becomes keys)
+          const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+          processParsedRows(rows);
+        } catch (err) {
+          console.error('❌ Excel parse error:', err);
+          toast.error('Failed to parse Excel file', toastConfig);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+  };
+
+  // Apply the parsed CSV/Excel data — ONLY updates matched students
+  const handleApplyUpload = () => {
+    if (!uploadPreview || uploadPreview.matched.length === 0) {
+      toast.warning('No matched students to apply', toastConfig);
+      return;
+    }
+
+    setUploading(true);
+
+    try {
+      // Start from existing stats, then overwrite only matched students
+      const updatedStats = { ...studentStats };
+
+      uploadPreview.matched.forEach(({ student, parsedStats }) => {
+        const id = student._id || student.id;
+        updatedStats[id] = {
+          ...updatedStats[id],   // keep any extra fields
+          ...parsedStats         // overwrite with CSV/Excel values
+        };
+      });
+
+      setStudentStats(updatedStats);
+
+      // Show ONLY the matched students in the table
+      const matchedIds = uploadPreview.matched.map(m => m.student._id || m.student.id);
+      const matchedStudents = students.filter(s => matchedIds.includes(s._id || s.id));
+      setFilteredStudents(matchedStudents);
+      setShowFilters(false);
+      setEditingStudentId(null);
+
+      toast.success(
+        `✅ Applied data for ${uploadPreview.matched.length} student(s). Other students untouched.`,
+        toastConfig
+      );
+
+      if (uploadPreview.unmatched.length > 0) {
+        toast.warn(`${uploadPreview.unmatched.length} row(s) could not be matched (skipped)`, toastConfig);
+      }
+
+      setShowUploadModal(false);
+      setUploadPreview(null);
+    } catch (err) {
+      console.error('❌ Apply upload error:', err);
+      toast.error('Failed to apply file data', toastConfig);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const getUniqueValues = (key) => {
     const values = students.map(s => s[key]).filter(Boolean);
     return [...new Set(values)];
@@ -529,6 +910,27 @@ const Activities = () => {
   const courses = getUniqueValues('course').length > 0 ? getUniqueValues('course') : beCourses;
   const semesters = getUniqueValues('semester').length > 0 ? getUniqueValues('semester') : ['1', '2', '3', '4', '5', '6', '7', '8'];
   const branches = getUniqueValues('branch').length > 0 ? getUniqueValues('branch') : engineeringBranches;
+
+  const getDownloadCount = () => {
+    let count = students.length;
+    if (downloadFilters.course) {
+      count = students.filter(s => s.course === downloadFilters.course).length;
+    }
+    if (downloadFilters.semester) {
+      count = students.filter(s => 
+        (!downloadFilters.course || s.course === downloadFilters.course) &&
+        s.semester === downloadFilters.semester
+      ).length;
+    }
+    if (downloadFilters.branch) {
+      count = students.filter(s => 
+        (!downloadFilters.course || s.course === downloadFilters.course) &&
+        (!downloadFilters.semester || s.semester === downloadFilters.semester) &&
+        s.branch === downloadFilters.branch
+      ).length;
+    }
+    return count;
+  };
 
   const handleFilterStudents = () => {
     console.log('🔍 Filtering students...');
@@ -647,23 +1049,21 @@ const Activities = () => {
             <RefreshCw size={18} className={isLoadingData ? 'animate-spin' : ''} />
             Refresh
           </button>
+          {/* Upload CSV button (replaces Filter Students top button) */}
           <button 
-            onClick={() => {
-              setShowFilters(true);
-              setFilteredStudents(students);
-              setEditingStudentId(null);
-            }}
+            onClick={handleOpenUploadModal}
             className="flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-[#00A9E0] hover:bg-[#008FC2] text-white rounded-lg font-semibold transition shadow-sm text-sm sm:text-base"
           >
-            <Filter size={18} />
-            Filter Students
+            <Upload size={18} />
+            Upload CSV
           </button>
+          {/* Download CSV button */}
           <button
-            onClick={() => handleViewHistory(filteredStudents[0]?._id || filteredStudents[0]?.id)}
+            onClick={handleOpenDownloadModal}
             className="flex items-center justify-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition shadow-sm text-sm sm:text-base"
           >
-            <BarChart3 size={18} />
-            View Trends
+            <Download size={18} />
+            Download CSV
           </button>
         </div>
       </div>
@@ -685,7 +1085,7 @@ const Activities = () => {
         ))}
       </div>
 
-      {/* Filter Section */}
+      {/* Filter Section (still available via Back to Filters) */}
       {showFilters ? (
         <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-gray-100 mb-4 md:mb-6">
           <h3 className="text-sm font-semibold text-[#080C68] mb-3 sm:mb-4 flex items-center gap-2">
@@ -774,7 +1174,7 @@ const Activities = () => {
         </div>
       )}
 
-      {/* Student Table with All 11 Features */}
+      {/* Student Table */}
       {!showFilters && filteredStudents.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="overflow-x-auto">
@@ -1130,6 +1530,270 @@ const Activities = () => {
           <Users size={40} className="mx-auto text-gray-300 mb-3 sm:mb-4" />
           <h3 className="text-base sm:text-lg font-semibold text-[#080C68] mb-2">No Students Found</h3>
           <p className="text-sm text-gray-500">Try adjusting your filters or click "Back to Filters" to reset.</p>
+        </div>
+      )}
+
+      {/* Download CSV Modal */}
+      {showDownloadModal && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setShowDownloadModal(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                  <Download size={20} className="text-purple-600" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-[#080C68]">Download Student CSV</h2>
+                  <p className="text-xs text-gray-500">
+                    Filter students before downloading
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDownloadModal(false)}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-[#080C68] mb-2">
+                  Course
+                </label>
+                <select
+                  value={downloadFilters.course}
+                  onChange={(e) => setDownloadFilters({ ...downloadFilters, course: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors text-sm"
+                >
+                  <option value="">All Courses</option>
+                  {courses.map((course) => (
+                    <option key={course} value={course}>{course}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-[#080C68] mb-2">
+                  Branch
+                </label>
+                <select
+                  value={downloadFilters.branch}
+                  onChange={(e) => setDownloadFilters({ ...downloadFilters, branch: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors text-sm"
+                >
+                  <option value="">All Branches</option>
+                  {branches.map((branch) => (
+                    <option key={branch} value={branch}>{branch}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-[#080C68] mb-2">
+                  Semester
+                </label>
+                <select
+                  value={downloadFilters.semester}
+                  onChange={(e) => setDownloadFilters({ ...downloadFilters, semester: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors text-sm"
+                >
+                  <option value="">All Semesters</option>
+                  {semesters.map((sem) => (
+                    <option key={sem} value={sem}>Semester {sem}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>{getDownloadCount()}</strong> student(s) will be included in the CSV
+                </p>
+                <p className="text-xs text-blue-600 mt-1">
+                  Columns: Student, USN, Age, Total Classes, Attended, Attendance %, GPA, Failed Subjects, Backlogs, Assignment %, Internal Marks, Exam Score, LMS Activity, Fee Pending, Counseling
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 p-5 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setShowDownloadModal(false)}
+                disabled={downloading}
+                className="w-full sm:w-auto px-5 py-2.5 border border-gray-200 rounded-lg text-gray-600 font-medium hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDownloadCSV}
+                disabled={downloading || getDownloadCount() === 0}
+                className="w-full sm:w-auto px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition disabled:opacity-70 flex items-center justify-center gap-2"
+              >
+                {downloading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download size={18} />
+                    Download CSV ({getDownloadCount()})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload CSV / Excel Modal */}
+      {showUploadModal && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => {
+            setShowUploadModal(false);
+            setUploadPreview(null);
+          }}
+        >
+          <div 
+            className="bg-white w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-[#00A9E0] bg-opacity-10 flex items-center justify-center">
+                  <Upload size={20} className="text-[#00A9E0]" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-[#080C68]">Upload Student File</h2>
+                  <p className="text-xs text-gray-500">
+                    Only matched students will be updated — others stay untouched
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setUploadPreview(null);
+                }}
+                className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-gray-100 text-gray-500"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-[#080C68] mb-2">
+                  Select CSV or Excel File
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  onChange={handleFileSelect}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#00A9E0] transition-colors text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-[#00A9E0] file:text-white file:font-semibold file:text-sm hover:file:bg-[#008FC2] file:cursor-pointer"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Accepts <strong>.csv</strong>, <strong>.xlsx</strong>, or <strong>.xls</strong> files. Required columns: Student, USN, Age, Total Classes, Attended, Attendance %, GPA, Failed Subjects, Backlogs, Assignment %, Internal Marks, Exam Score, LMS Activity, Fee Pending, Counseling
+                </p>
+              </div>
+
+              {uploadPreview && (
+                <div className="space-y-3">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <p className="text-sm text-green-800">
+                      <strong>{uploadPreview.matched.length}</strong> row(s) matched students in the system — only these will be updated
+                    </p>
+                  </div>
+
+                  {uploadPreview.unmatched.length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-sm text-yellow-800">
+                        <strong>{uploadPreview.unmatched.length}</strong> row(s) could not be matched (will be skipped)
+                      </p>
+                      <ul className="text-xs text-yellow-700 mt-1 list-disc list-inside max-h-20 overflow-y-auto">
+                        {uploadPreview.unmatched.map((u, idx) => (
+                          <li key={idx}>{u.name}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {uploadPreview.matched.length > 0 && (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="max-h-60 overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">Student</th>
+                              <th className="text-left px-3 py-2 text-xs font-semibold text-gray-600">USN</th>
+                              <th className="text-center px-3 py-2 text-xs font-semibold text-gray-600">Age</th>
+                              <th className="text-center px-3 py-2 text-xs font-semibold text-gray-600">Attendance</th>
+                              <th className="text-center px-3 py-2 text-xs font-semibold text-gray-600">GPA</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {uploadPreview.matched.map(({ student, parsedStats }, idx) => (
+                              <tr key={idx} className="border-t border-gray-100">
+                                <td className="px-3 py-2 text-gray-800">{student.name}</td>
+                                <td className="px-3 py-2 text-gray-600">{student.usn}</td>
+                                <td className="px-3 py-2 text-center text-gray-600">{parsedStats.age}</td>
+                                <td className="px-3 py-2 text-center text-gray-600">
+                                  {parsedStats.attendance}%
+                                </td>
+                                <td className="px-3 py-2 text-center text-gray-600">{parsedStats.gpa}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 p-5 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setUploadPreview(null);
+                }}
+                disabled={uploading}
+                className="w-full sm:w-auto px-5 py-2.5 border border-gray-200 rounded-lg text-gray-600 font-medium hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleApplyUpload}
+                disabled={uploading || !uploadPreview || uploadPreview.matched.length === 0}
+                className="w-full sm:w-auto px-6 py-2.5 bg-[#00A9E0] hover:bg-[#008FC2] text-white rounded-lg font-semibold transition disabled:opacity-70 flex items-center justify-center gap-2"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Applying...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={18} />
+                    Apply Data ({uploadPreview?.matched?.length || 0})
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
