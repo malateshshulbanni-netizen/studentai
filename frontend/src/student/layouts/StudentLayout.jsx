@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
@@ -6,10 +6,25 @@ import Header from '../components/Header';
 const StudentLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect screen size
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
+
+  // On mobile, always use full-width (no left margin)
+  // On desktop, use margin based on collapse state
+  const sidebarWidth = isMobile ? 0 : (isCollapsed ? 64 : 224);
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -21,21 +36,22 @@ const StudentLayout = () => {
         setIsCollapsed={setIsCollapsed}
       />
 
-      {/* Main Content - Full width with proper margin */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header - Fixed position with left margin matching sidebar */}
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-w-0 w-full">
+        {/* Header */}
         <Header 
           toggleMobileMenu={toggleMobileMenu}
           isCollapsed={isCollapsed}
         />
 
-        {/* Page Content - Adjust padding based on sidebar state */}
+        {/* Page Content */}
         <main 
-          className={`flex-1 overflow-y-auto transition-all duration-300 ${
-            isCollapsed ? 'ml-16' : 'ml-56'
-          } mt-16 p-4 md:p-6`}
+          className="flex-1 overflow-y-auto transition-all duration-300 mt-14 md:mt-16 p-3 sm:p-4 md:p-6"
+          style={{ 
+            marginLeft: isMobile ? 0 : `${sidebarWidth}px` 
+          }}
         >
-          <div className="max-w-7xl mx-auto">
+          <div className="max-w-7xl mx-auto w-full">
             <Outlet />
           </div>
         </main>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X, LogIn, ChevronDown, Shield, Users } from 'lucide-react';
+import { Menu, X, LogIn, ChevronDown, Shield, Users, UserCog } from 'lucide-react';
 import LoginModal from './LoginModal';
 
 const Navbar = () => {
@@ -7,6 +7,9 @@ const Navbar = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState('');
+
+  // ✅ Admin project URL
+  const ADMIN_APP_URL = 'http://localhost:5174';
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -43,6 +46,15 @@ const Navbar = () => {
 
   const handleLoginClick = (role) => {
     closeDropdown();
+    setIsMenuOpen(false);
+
+    // ✅ Admin / Faculty → redirect to admin project
+    if (role === 'admin-faculty') {
+      window.location.href = ADMIN_APP_URL;
+      return;
+    }
+
+    // ✅ Super Admin / Student → open modal (existing behavior)
     setSelectedRole(role);
     setIsLoginModalOpen(true);
   };
@@ -117,7 +129,19 @@ const Navbar = () => {
 
                   {/* Dropdown Menu */}
                   {isDropdownOpen && (
-                    <div className="absolute right-0 mt-2 w-56 rounded-xl shadow-lg py-2" style={{ backgroundColor: '#080C68', border: '1px solid #24348A' }}>
+                    <div className="absolute right-0 mt-2 w-64 rounded-xl shadow-lg py-2" style={{ backgroundColor: '#080C68', border: '1px solid #24348A' }}>
+                      
+                      {/* ✅ NEW: Admin / Faculty Login */}
+                      <button 
+                        onClick={() => handleLoginClick('admin-faculty')}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-[#00A9E0] hover:bg-white/5 transition-colors text-sm"
+                      >
+                        <UserCog size={18} style={{ color: '#00A9E0' }} />
+                        <span>Admin / Faculty Login</span>
+                      </button>
+                      <div className="border-t" style={{ borderColor: '#24348A' }}></div>
+
+                      {/* Super Admin Login */}
                       <button 
                         onClick={() => handleLoginClick('superadmin')}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-[#00A9E0] hover:bg-white/5 transition-colors text-sm"
@@ -126,6 +150,8 @@ const Navbar = () => {
                         <span>Super Admin Login</span>
                       </button>
                       <div className="border-t" style={{ borderColor: '#24348A' }}></div>
+
+                      {/* Student Login */}
                       <button 
                         onClick={() => handleLoginClick('student')}
                         className="w-full flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-[#00A9E0] hover:bg-white/5 transition-colors text-sm"
@@ -193,6 +219,19 @@ const Navbar = () => {
                 
                 {/* Mobile Login Options */}
                 <div className="pt-2 space-y-2">
+                  {/* ✅ NEW: Admin / Faculty Login (mobile) */}
+                  <button 
+                    onClick={() => {
+                      handleLoginClick('admin-faculty');
+                      setIsMenuOpen(false);
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-white/80 hover:text-[#00A9E0] hover:bg-white/5 rounded-lg transition-colors"
+                  >
+                    <UserCog size={18} style={{ color: '#00A9E0' }} />
+                    <span>Admin / Faculty Login</span>
+                  </button>
+
+                  {/* Super Admin Login */}
                   <button 
                     onClick={() => {
                       handleLoginClick('superadmin');
@@ -203,6 +242,8 @@ const Navbar = () => {
                     <Shield size={18} style={{ color: '#00A9E0' }} />
                     <span>Super Admin Login</span>
                   </button>
+
+                  {/* Student Login */}
                   <button 
                     onClick={() => {
                       handleLoginClick('student');

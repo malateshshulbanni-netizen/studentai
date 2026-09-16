@@ -16,6 +16,7 @@ import AuditLogs from './superadmin/pages/AuditLogs';
 import StudentLayout from './student/layouts/StudentLayout';
 import StudentDashboard from './student/pages/Dashboard';
 import InterventionsReport from './student/pages/InterventionsReport';
+import Profile from './student/pages/Profile';
 
 // Super Admin Protected Route Component
 const SuperAdminProtectedRoute = ({ children }) => {
@@ -77,6 +78,7 @@ const App = () => {
           <Route index element={<Navigate to="/student/dashboard" />} />
           <Route path="dashboard" element={<StudentDashboard />} />
           <Route path="interventions" element={<InterventionsReport />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
       </Routes>
     </Router>

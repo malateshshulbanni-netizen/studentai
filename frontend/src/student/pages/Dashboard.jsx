@@ -36,7 +36,6 @@ const Dashboard = () => {
   const [hasData, setHasData] = useState(false);
   const [predicting, setPredicting] = useState(false);
 
-  // API URL - Direct URL
   const API_URL = 'http://localhost:5000';
   const ML_API_URL = 'http://localhost:8000';
 
@@ -46,7 +45,9 @@ const Dashboard = () => {
   }, []);
 
   const fetchStudentData = async () => {
-    console.log('🟡 [Dashboard] fetchStudentData started');
+    console.log('\n' + '='.repeat(70));
+    console.log('🟡 [Dashboard] fetchStudentData STARTED');
+    console.log('='.repeat(70));
     setLoading(true);
     setError(null);
     
@@ -55,7 +56,7 @@ const Dashboard = () => {
       const userData = localStorage.getItem('user');
       
       console.log('📋 [Dashboard] Token exists:', !!token);
-      console.log('📋 [Dashboard] User data:', userData);
+      console.log('📋 [Dashboard] Raw user data:', userData);
 
       if (!token) {
         console.error('❌ [Dashboard] No token found in localStorage');
@@ -87,9 +88,14 @@ const Dashboard = () => {
 
       setStudentData(user);
 
-      // Fetch student activities
+      // ============================================
+      // FETCH ACTIVITIES FROM NODE.JS BACKEND
+      // ============================================
       const activitiesUrl = `${API_URL}/api/student-activities?studentId=${userId}`;
-      console.log(`📤 [Dashboard] GET ${activitiesUrl}`);
+      console.log('\n' + '-'.repeat(70));
+      console.log('📤 [Dashboard] FETCHING ACTIVITIES');
+      console.log('-'.repeat(70));
+      console.log(`   URL: ${activitiesUrl}`);
       
       const activitiesResponse = await fetch(activitiesUrl, {
         headers: {
@@ -97,21 +103,23 @@ const Dashboard = () => {
         }
       });
 
-      console.log(`📥 [Dashboard] Activities Response Status: ${activitiesResponse.status}`);
+      console.log(`   Status: ${activitiesResponse.status}`);
 
       let activitiesData = [];
       let latestAct = null;
 
       if (activitiesResponse.ok) {
         const activitiesResult = await activitiesResponse.json();
-        console.log('✅ [Dashboard] Activities data received:', activitiesResult);
+        console.log('✅ [Dashboard] Full activities response:', JSON.stringify(activitiesResult, null, 2));
         
         if (activitiesResult.data && activitiesResult.data.activities) {
           activitiesData = activitiesResult.data.activities;
           latestAct = activitiesData.length > 0 ? activitiesData[0] : null;
           console.log(`📊 [Dashboard] Found ${activitiesData.length} activities`);
+          
           if (latestAct) {
-            console.log('📊 [Dashboard] Latest activity:', latestAct);
+            console.log('\n📊 [Dashboard] LATEST ACTIVITY (RAW FROM DB):');
+            console.log(JSON.stringify(latestAct, null, 2));
           }
         }
       } else {
@@ -127,12 +135,34 @@ const Dashboard = () => {
       setActivities(activitiesData.slice(0, 5));
       setLatestActivity(latestAct);
 
-      // Check if student has data
-      const hasDataFlag = latestAct !== null && 
-        (latestAct.attendancePercentage > 0 || 
-         latestAct.gpa > 0 || 
-         latestAct.backlogs > 0 || 
-         latestAct.assignmentCompletion > 0);
+      // ============================================
+      // CHECK IF DATA EXISTS (ALL 11 FEATURES)
+      // ============================================
+      console.log('\n' + '-'.repeat(70));
+      console.log('🔍 [Dashboard] CHECKING DATA AVAILABILITY (11 features)');
+      console.log('-'.repeat(70));
+      
+      const featureChecks = {
+        attendancePercentage: latestAct?.attendancePercentage > 0,
+        gpa: latestAct?.gpa > 0,
+        backlogs: latestAct?.backlogs > 0,
+        assignmentCompletion: latestAct?.assignmentCompletion > 0,
+        age: latestAct?.age > 0,
+        failedSubjects: latestAct?.failedSubjects > 0,
+        internalAssessmentMarks: latestAct?.internalAssessmentMarks > 0,
+        examScore: latestAct?.examScore > 0,
+        lmsActivityScore: latestAct?.lmsActivityScore > 0,
+        feePending: latestAct?.feePending > 0,
+        counselingSessions: latestAct?.counselingSessions > 0,
+      };
+
+      console.log('   Feature presence check:');
+      Object.keys(featureChecks).forEach(key => {
+        console.log(`   ${featureChecks[key] ? '✅' : '❌'} ${key}: ${latestAct?.[key] ?? 'undefined'}`);
+      });
+
+      const hasDataFlag = latestAct !== null && Object.values(featureChecks).some(Boolean);
+      console.log(`\n   hasData: ${hasDataFlag}`);
       setHasData(hasDataFlag);
 
       // Fetch prediction if data exists
@@ -144,21 +174,37 @@ const Dashboard = () => {
         setPredicting(false);
       }
 
-      // Calculate stats
+      // ============================================
+      // CALCULATE STATS (ALL 11 FEATURES)
+      // ============================================
+      console.log('\n' + '-'.repeat(70));
+      console.log('📊 [Dashboard] CALCULATING STATS');
+      console.log('-'.repeat(70));
+      
+      const age = latestAct?.age || 20;
       const attendance = latestAct?.attendancePercentage || 0;
       const gpa = latestAct?.gpa || 0;
+      const failedSubjects = latestAct?.failedSubjects || 0;
       const backlogs = latestAct?.backlogs || 0;
       const assignmentCompletion = latestAct?.assignmentCompletion || 0;
-      const engagement = latestAct?.engagement || 'Medium';
+      const internalAssessmentMarks = latestAct?.internalAssessmentMarks || 0;
+      const examScore = latestAct?.examScore || 0;
+      const lmsActivityScore = latestAct?.lmsActivityScore || 0;
+      const feePending = latestAct?.feePending || 0;
+      const counselingSessions = latestAct?.counselingSessions || 0;
 
-      console.log('📊 [Dashboard] Calculated stats:', { 
-        attendance, 
-        gpa, 
-        backlogs, 
-        assignmentCompletion, 
-        engagement,
-        hasData: hasDataFlag 
-      });
+      console.log('   Extracted values:');
+      console.log(`   age: ${age}`);
+      console.log(`   attendance: ${attendance}%`);
+      console.log(`   gpa: ${gpa}`);
+      console.log(`   failedSubjects: ${failedSubjects}`);
+      console.log(`   backlogs: ${backlogs}`);
+      console.log(`   assignmentCompletion: ${assignmentCompletion}%`);
+      console.log(`   internalAssessmentMarks: ${internalAssessmentMarks}`);
+      console.log(`   examScore: ${examScore}`);
+      console.log(`   lmsActivityScore: ${lmsActivityScore}`);
+      console.log(`   feePending: ${feePending}`);
+      console.log(`   counselingSessions: ${counselingSessions}`);
 
       setStats([
         { 
@@ -219,7 +265,8 @@ const Dashboard = () => {
         },
       ]);
 
-      console.log('✅ [Dashboard] Dashboard data loaded successfully');
+      console.log('\n✅ [Dashboard] Dashboard data loaded successfully');
+      console.log('='.repeat(70) + '\n');
 
     } catch (error) {
       console.error('❌ [Dashboard] Error fetching student data:', error);
@@ -238,22 +285,82 @@ const Dashboard = () => {
     }
   };
 
-  // Fetch prediction - Handles ANY backend response structure
+  // ============================================
+  // FETCH PREDICTION - WITH DETAILED CONSOLE LOGS
+  // ============================================
   const fetchPrediction = async (latestAct, token) => {
+    console.log('\n' + '='.repeat(70));
+    console.log('🔮 [Prediction] STARTING PREDICTION');
+    console.log('='.repeat(70));
+    
     setPredicting(true);
     let prediction = null;
     
     try {
-      console.log('🔮 [Dashboard] Fetching prediction with data:', {
-        attendance: latestAct.attendancePercentage || 0,
-        gpa: latestAct.gpa || 0,
-        backlogs: latestAct.backlogs || 0,
-        assignment_completion: latestAct.assignmentCompletion || 0,
-        engagement: latestAct.engagement || 'Medium'
-      });
+      // ============================================
+      // BUILD FULL 11-FEATURE PAYLOAD
+      // ============================================
+      console.log('\n📦 [Prediction] BUILDING 11-FEATURE PAYLOAD');
+      console.log('-'.repeat(70));
+      
+      const payload = {
+        age: parseInt(latestAct.age) || 20,
+        attendance_percentage: parseFloat(latestAct.attendancePercentage) || 0,
+        current_gpa: parseFloat(latestAct.gpa) || 0,
+        failed_subjects: parseInt(latestAct.failedSubjects) || 0,
+        backlogs: parseInt(latestAct.backlogs) || 0,
+        assignment_completion_percentage: parseFloat(latestAct.assignmentCompletion) || 0,
+        internal_assessment_marks: parseFloat(latestAct.internalAssessmentMarks) || 0,
+        exam_score: parseFloat(latestAct.examScore) || 0,
+        lms_activity_score: parseFloat(latestAct.lmsActivityScore) || 0,
+        fee_pending: parseInt(latestAct.feePending) || 0,
+        counseling_sessions: parseInt(latestAct.counselingSessions) || 0
+      };
 
+      // Log each field with value + type + source
+      console.log('   Field-by-field breakdown:');
+      console.log('   ┌─────────────────────────────────┬────────────┬───────────┬──────────────────────────┐');
+      console.log('   │ Field                           │ Value      │ Type      │ From DB                  │');
+      console.log('   ├─────────────────────────────────┼────────────┼───────────┼──────────────────────────┤');
+      console.log(`   │ age                             │ ${String(payload.age).padEnd(10)} │ ${String(typeof payload.age).padEnd(9)} │ ${String(latestAct.age).padEnd(24)} │`);
+      console.log(`   │ attendance_percentage           │ ${String(payload.attendance_percentage).padEnd(10)} │ ${String(typeof payload.attendance_percentage).padEnd(9)} │ ${String(latestAct.attendancePercentage).padEnd(24)} │`);
+      console.log(`   │ current_gpa                     │ ${String(payload.current_gpa).padEnd(10)} │ ${String(typeof payload.current_gpa).padEnd(9)} │ ${String(latestAct.gpa).padEnd(24)} │`);
+      console.log(`   │ failed_subjects                 │ ${String(payload.failed_subjects).padEnd(10)} │ ${String(typeof payload.failed_subjects).padEnd(9)} │ ${String(latestAct.failedSubjects).padEnd(24)} │`);
+      console.log(`   │ backlogs                        │ ${String(payload.backlogs).padEnd(10)} │ ${String(typeof payload.backlogs).padEnd(9)} │ ${String(latestAct.backlogs).padEnd(24)} │`);
+      console.log(`   │ assignment_completion_percentage│ ${String(payload.assignment_completion_percentage).padEnd(10)} │ ${String(typeof payload.assignment_completion_percentage).padEnd(9)} │ ${String(latestAct.assignmentCompletion).padEnd(24)} │`);
+      console.log(`   │ internal_assessment_marks       │ ${String(payload.internal_assessment_marks).padEnd(10)} │ ${String(typeof payload.internal_assessment_marks).padEnd(9)} │ ${String(latestAct.internalAssessmentMarks).padEnd(24)} │`);
+      console.log(`   │ exam_score                      │ ${String(payload.exam_score).padEnd(10)} │ ${String(typeof payload.exam_score).padEnd(9)} │ ${String(latestAct.examScore).padEnd(24)} │`);
+      console.log(`   │ lms_activity_score              │ ${String(payload.lms_activity_score).padEnd(10)} │ ${String(typeof payload.lms_activity_score).padEnd(9)} │ ${String(latestAct.lmsActivityScore).padEnd(24)} │`);
+      console.log(`   │ fee_pending                     │ ${String(payload.fee_pending).padEnd(10)} │ ${String(typeof payload.fee_pending).padEnd(9)} │ ${String(latestAct.feePending).padEnd(24)} │`);
+      console.log(`   │ counseling_sessions             │ ${String(payload.counseling_sessions).padEnd(10)} │ ${String(typeof payload.counseling_sessions).padEnd(9)} │ ${String(latestAct.counselingSessions).padEnd(24)} │`);
+      console.log('   └─────────────────────────────────┴────────────┴───────────┴──────────────────────────┘');
+
+      console.log('\n   Full JSON payload being sent:');
+      console.log(JSON.stringify(payload, null, 2));
+
+      // Count non-zero features
+      const nonZeroCount = Object.values(payload).filter(v => v !== 0 && v !== 20).length;
+      console.log(`\n   📊 Non-default values count: ${nonZeroCount}/11`);
+      
+      if (nonZeroCount < 5) {
+        console.warn('   ⚠️ WARNING: Most features are using default values!');
+        console.warn('   ⚠️ This means the StudentActivity records may be missing data.');
+        console.warn('   ⚠️ Check if the backend model has all 11 fields saved.');
+      }
+
+      // ============================================
+      // SEND TO ML API
+      // ============================================
       const predictUrl = `${ML_API_URL}/api/predict`;
-      console.log(`📤 [Dashboard] POST ${predictUrl}`);
+      console.log('\n' + '-'.repeat(70));
+      console.log('📤 [Prediction] SENDING TO ML API');
+      console.log('-'.repeat(70));
+      console.log(`   URL: ${predictUrl}`);
+      console.log(`   Method: POST`);
+      console.log(`   Content-Type: application/json`);
+      console.log(`   Authorization: Bearer ${token ? token.substring(0, 20) + '...' : 'NONE'}`);
+      
+      const startTime = performance.now();
       
       const predictResponse = await fetch(predictUrl, {
         method: 'POST',
@@ -261,40 +368,48 @@ const Dashboard = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          attendance: latestAct.attendancePercentage || 0,
-          gpa: latestAct.gpa || 0,
-          backlogs: latestAct.backlogs || 0,
-          assignment_completion: latestAct.assignmentCompletion || 0,
-          engagement: latestAct.engagement || 'Medium'
-        })
+        body: JSON.stringify(payload)
       });
 
-      console.log(`📥 [Dashboard] Prediction Response Status: ${predictResponse.status}`);
+      const endTime = performance.now();
+      const responseTime = (endTime - startTime).toFixed(2);
+
+      console.log(`\n   Response status: ${predictResponse.status} ${predictResponse.statusText}`);
+      console.log(`   Response time: ${responseTime}ms`);
 
       if (predictResponse.ok) {
         const predictData = await predictResponse.json();
-        console.log('✅ [Dashboard] Prediction data received:', JSON.stringify(predictData, null, 2));
+        
+        console.log('\n' + '-'.repeat(70));
+        console.log('📥 [Prediction] RAW RESPONSE FROM ML API');
+        console.log('-'.repeat(70));
+        console.log(JSON.stringify(predictData, null, 2));
 
         let extractedPrediction = null;
         
         // Try multiple possible response structures
         if (predictData.success && predictData.data) {
+          console.log('\n   ✅ Matched structure: predictData.success && predictData.data');
           extractedPrediction = predictData.data;
         } else if (predictData.data) {
+          console.log('\n   ✅ Matched structure: predictData.data');
           extractedPrediction = predictData.data;
         } else if (predictData.risk_level || predictData.risk || predictData.probability !== undefined) {
+          console.log('\n   ✅ Matched structure: direct risk_level/risk/probability');
           extractedPrediction = predictData;
         } else if (predictData.prediction !== undefined) {
+          console.log('\n   ✅ Matched structure: predictData.prediction');
           extractedPrediction = {
             risk_level: predictData.risk_level || predictData.risk || 'Unknown',
             probability: predictData.probability || 0
           };
         } else if (predictData.predictions !== undefined) {
+          console.log('\n   ✅ Matched structure: predictData.predictions[]');
           if (Array.isArray(predictData.predictions) && predictData.predictions.length > 0) {
             extractedPrediction = predictData.predictions[0];
           }
         } else {
+          console.log('\n   ✅ Matched structure: fallback');
           const riskLevel = predictData.risk_level || predictData.risk || predictData.label || 
                            predictData.prediction || predictData.result || 'Unknown';
           const probability = predictData.probability || predictData.prob || 
@@ -303,6 +418,8 @@ const Dashboard = () => {
         }
         
         if (extractedPrediction) {
+          console.log('\n   📋 Extracted prediction:', JSON.stringify(extractedPrediction, null, 2));
+          
           let riskLevel = extractedPrediction.risk_level || 
                           extractedPrediction.risk || 
                           extractedPrediction.label || 
@@ -311,6 +428,8 @@ const Dashboard = () => {
                           extractedPrediction.status ||
                           extractedPrediction.level ||
                           'Unknown';
+          
+          console.log(`\n   📊 Raw risk_level: "${riskLevel}"`);
           
           if (typeof riskLevel === 'string') {
             const lower = riskLevel.toLowerCase();
@@ -327,6 +446,8 @@ const Dashboard = () => {
             }
           }
           
+          console.log(`   📊 Normalized risk_level: "${riskLevel}"`);
+          
           let probability = 0;
           if (extractedPrediction.probability !== undefined) {
             probability = Number(extractedPrediction.probability);
@@ -340,7 +461,10 @@ const Dashboard = () => {
             probability = Number(extractedPrediction.prediction) / 100;
           }
           
+          console.log(`   📊 Raw probability: ${probability}`);
+          
           if (probability > 1) {
+            console.log(`   📊 Normalizing probability (was > 1): ${probability} → ${probability / 100}`);
             probability = probability / 100;
           }
           
@@ -348,27 +472,48 @@ const Dashboard = () => {
             risk_level: riskLevel,
             probability: Math.min(Math.max(probability, 0), 1)
           };
+
+          console.log('\n   ✅ FINAL PREDICTION:');
+          console.log(`   ┌────────────────────────────────────────┐`);
+          console.log(`   │ Risk Level:     ${String(riskLevel).padEnd(23)} │`);
+          console.log(`   │ Probability:    ${String((prediction.probability * 100).toFixed(2) + '%').padEnd(23)} │`);
+          console.log(`   │ Confidence:     ${String(prediction.probability > 0.7 ? 'High' : prediction.probability > 0.4 ? 'Medium' : 'Low').padEnd(23)} │`);
+          console.log(`   └────────────────────────────────────────┘`);
+          
         } else {
+          console.warn('\n   ⚠️ Could not extract prediction from response');
           prediction = {
             risk_level: 'Unknown',
             probability: 0
           };
         }
       } else {
+        console.error(`\n   ❌ ML API returned error status: ${predictResponse.status}`);
+        try {
+          const errBody = await predictResponse.json();
+          console.error('   Error body:', errBody);
+        } catch (e) {
+          console.error('   Could not parse error body');
+        }
         prediction = {
           risk_level: 'Unknown',
           probability: 0
         };
       }
     } catch (error) {
-      console.error('❌ [Dashboard] Error fetching prediction:', error);
+      console.error('\n❌ [Prediction] Error during prediction:', error);
+      console.error('   Error stack:', error.stack);
       prediction = {
         risk_level: 'Unknown',
         probability: 0
       };
     }
     
-    console.log('🔮 [Dashboard] Final prediction value:', prediction);
+    console.log('\n' + '='.repeat(70));
+    console.log('🔮 [Prediction] COMPLETE');
+    console.log('   Final result:', JSON.stringify(prediction));
+    console.log('='.repeat(70) + '\n');
+    
     setPredictionResult(prediction);
     setPredicting(false);
   };
@@ -468,7 +613,7 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* RISK PREDICTION SECTION - SMALL & COMPACT */}
+      {/* RISK PREDICTION SECTION */}
       <div className="mb-8 bg-white rounded-2xl p-4 md:p-6 border border-gray-100 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
           <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
@@ -476,7 +621,7 @@ const Dashboard = () => {
           </div>
           <div>
             <h2 className="text-lg font-bold text-[#080C68]">Risk Prediction</h2>
-            <p className="text-xs text-gray-500">AI-powered dropout risk assessment</p>
+            <p className="text-xs text-gray-500">AI-powered dropout risk assessment (11 Features)</p>
           </div>
           {predicting && (
             <div className="ml-auto flex items-center gap-2 text-purple-600">
@@ -527,7 +672,6 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-            {/* Progress Bar - Smaller */}
             <div className="mt-3">
               <div className="w-full bg-gray-200 rounded-full h-1.5">
                 <div 
